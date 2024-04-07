@@ -1,0 +1,54 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+variables.h \- variable tests
+.\" --------------------------------------------------------------------------
+.SH SYNOPSIS
+.nf
+.B #include <variables.h>
+.fi
+.\" --------------------------------------------------------------------------
+.SH DESCRIPTION
+In computer programming, a variable is an abstract storage location paired with an associated symbolic name, which contains some known or unknown quantity of information referred to as a value.
+In simpler terms, a variable is a named container for a particular set of bits or type of data (like integer, float, string etc...).
+.PP
+A variable can eventually be associated with or identified by a memory address.
+The variable name is the usual way to reference the stored value, in addition to referring to the variable itself, depending on the context.
+This separation of name and content allows the name to be used independently of the exact information it represents.
+.PP
+The identifier in computer source code can be bound to a value during run time, and the value of the variable may thus change during the course of program execution.
+.\" -------------------------------------
+.SS The PERSON_AGE variable
+Person age handle.
+.PP
+.in +4n
+.EX
+volatile const int PERSON_AGE;
+.EE
+.in
+.PP
+This is a constant value.
+.PP
+.\" -------------------------------------
+.SS The FooBarDefaultValue variable
+This variable refers to a pointer to a structure.
+.PP
+.in +4n
+.EX
+const struct FooBar **FooBarDefaultValue;
+.EE
+.in
+.PP
+Lets see how Doxygen handles it.
+.PP
+.\" -------------------------------------
+.SS The scratch_buffer variable
+This variable has an array portion associated with it.
+.PP
+.in +4n
+.EX
+char scratch_buffer[64];
+.EE
+.in
+.PP
+It is intended to be a scratch buffer that anyone can write to.
+It is not thread safe.

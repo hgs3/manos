@@ -1,0 +1,25 @@
+.TH "FROB" "3"
+.SH NAME
+frob_new \- construct a Frob object
+.\" --------------------------------------------------------------------------
+.SH LIBRARY
+Create and manipulate Frobs (libfrob, -lfrob)
+.\" --------------------------------------------------------------------------
+.SH SYNOPSIS
+.nf
+.B #include <frob.h>
+.PP
+.BI "Frob *frob_new(void);"
+.fi
+.\" --------------------------------------------------------------------------
+.SH DESCRIPTION
+Create a \f[I]Frob\f[R] object with default configuration.
+You can customize the object after its creation.
+You must release the \f[I]Frob\f[R] object to prevent resource leakage by calling \f[B]frob_free\f[R](3).
+.\" --------------------------------------------------------------------------
+.SH RETURN VALUE
+Instance of a \f[I]Frob\f[R] object or \f[V]NULL\f[R] on allocation failure.
+.\" --------------------------------------------------------------------------
+.SH SEE ALSO
+.BR frob_free (3),
+.BR frob_set_doodad (3)

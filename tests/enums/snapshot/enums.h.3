@@ -1,0 +1,75 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+enums.h \- enumeration element tests
+.\" --------------------------------------------------------------------------
+.SH SYNOPSIS
+.nf
+.B #include <enums.h>
+.fi
+.\" --------------------------------------------------------------------------
+.SH DESCRIPTION
+An enumeration is a complete, ordered listing of all the items in a collection.
+The term is commonly used in mathematics and computer science to refer to a listing of all of the elements of a set.
+The precise requirements for an enumeration (for example, whether the set must be finite, or whether the list is allowed to contain repetitions) depend on the discipline of study and the context of a given problem.
+.\" -------------------------------------
+.SS The Empty enumeration
+Represents an empty enumeration.
+.PP
+.in +4n
+.EX
+enum Empty {
+};
+.EE
+.in
+.PP
+This enumeration doesn't do anything other than take up space (what a free loader)!
+.PP
+.\" -------------------------------------
+.SS The FooBar enumeration
+This enumeration lacks documentation for its elements.
+.PP
+.in +4n
+.EX
+enum FooBar {
+    ABC,
+    XYZ,
+};
+.EE
+.in
+.PP
+The documentation for the elements is intentionally omitted.
+.PP
+.\" -------------------------------------
+.SS The Frob enumeration
+Represents the states of a Frob object.
+.PP
+.in +4n
+.EX
+enum Frob {
+    FOO,
+    BAR,
+    BAZ,
+};
+.EE
+.in
+.PP
+Represents various error and success states of a Frobnicator object instance.
+Consult the documentation for for more details.
+The default state of \f[I]enum Frob\f[R] is \f[I]FOO\f[R] so see its documentation for more details.
+.PP
+.TP
+.I FOO
+Represents a FOO constant.
+.PP
+This is a \f[I]FOO\f[R] and it will never be a \f[I]BAR\f[R].
+.TP
+.I BAR
+Represents a BAR constant.
+.PP
+This is a \f[I]BAR\f[R] and it will never ever be a \f[I]FOO\f[R].
+.TP
+.I BAZ
+Represents a BAZ constant.
+.PP
+This is a \f[I]BAZ\f[R].
+It is the best constant belonging to \f[I]enum Frob\f[R] according to myself.

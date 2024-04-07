@@ -1,0 +1,16 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+println \- print some formatted text
+.\" --------------------------------------------------------------------------
+.SH SYNOPSIS
+.nf
+.B #include <functions/functions.h>
+.PP
+.BI "int println(char *" buf ", const char *" fmt ", ...);"
+.fi
+.\" --------------------------------------------------------------------------
+.SH DESCRIPTION
+Formats \f[I]fmt\f[R] using the same format escape characters as \f[V]printf\f[R] and then writes the result to \f[I]buf\f[R].
+.\" --------------------------------------------------------------------------
+.SH RETURN VALUE
+The number of characters written to \f[I]buf\f[R] or \f[V]-1\f[R] if an error occured.

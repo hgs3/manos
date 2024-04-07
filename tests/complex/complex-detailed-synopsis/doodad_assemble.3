@@ -1,0 +1,32 @@
+.TH "FROB" "3"
+.SH NAME
+doodad_assemble \- assemble a Doodad object
+.\" --------------------------------------------------------------------------
+.SH LIBRARY
+Create and manipulate Frobs (libfrob, -lfrob)
+.\" --------------------------------------------------------------------------
+.SH SYNOPSIS
+.nf
+.B #include <doodad.h>
+.PP
+.BI "Result doodad_assemble(Doodad *" doodad ");"
+.fi
+.\" --------------------------------------------------------------------------
+.SH DESCRIPTION
+Doodads must be assembled before being used.
+You can construct a \f[I]struct Doodad\f[R] object preassembled by calling \f[B]doodad_new\f[R](3) with the DoodadFlagAssembled flag.
+.\" --------------------------------------------------------------------------
+.SH RETURN VALUE
+.TP
+RESULT_OK
+The doodad was assembled successfully.
+.TP
+RESULT_HALF
+The doodad was half assembled.
+.TP
+RESULT_FAIL
+The doodad could not be assembled.
+.\" --------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doodad_new (3),
+.BR doodad_free (3)

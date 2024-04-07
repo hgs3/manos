@@ -1,0 +1,15 @@
+.cache
+.ccls-cache
+.mypy_cache
+.eggs
+__pycache__
+*.egg-info
+*.pyd
+build
+local_install
+Testing
+dist
+tests/**/man
+tests/**/xml
+man
+xml

@@ -1,0 +1,16 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+close_me \- closes a file descriptor
+.\" --------------------------------------------------------------------------
+.SH SYNOPSIS
+.nf
+.B #include <functions-params.h>
+.PP
+.BI "int close_me(int " fd ", int " flags ");"
+.fi
+.\" --------------------------------------------------------------------------
+.SH DESCRIPTION
+Closes the file descriptor \f[I]fd\f[R] with options specified by \f[I]flags\f[R].
+.\" --------------------------------------------------------------------------
+.SH RETURN VALUE
+Non-zero if file descriptor \f[I]fd\f[R] was closed.

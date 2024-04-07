@@ -1,0 +1,53 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+preprocessor.h \- preprocessor definition tests
+.\" --------------------------------------------------------------------------
+.SH SYNOPSIS
+.nf
+.B #include <preprocessor.h>
+.fi
+.\" --------------------------------------------------------------------------
+.SH DESCRIPTION
+The C preprocessor is the macro preprocessor for several computer programming languages, such as C, Objective-C, C++, and a variety of Fortran languages.
+The preprocessor provides inclusion of header files, macro expansions, conditional compilation, and line control.
+.PP
+In many C implementations, it is a separate program invoked by the compiler as the first part of translation.
+.PP
+The language of preprocessor directives is only weakly related to the grammar of C, and so is sometimes used to process other kinds of text files.
+.\" -------------------------------------
+.SS The ENABLE_AWESOME_FEATURE macro
+This preproccessor definition is defined when the super awsome feature is enabled.
+.PP
+.in +4n
+.EX
+#define ENABLE_AWESOME_FEATURE
+.EE
+.in
+.PP
+If you don't want the super awesome feature then delete or comment this macro.
+.PP
+.\" -------------------------------------
+.SS The INVALID_KEY macro
+This preproccessor macro evaluates to a constant.
+.PP
+.in +4n
+.EX
+#define INVALID_KEY
+.EE
+.in
+.PP
+You can treat this macro like a variable if you want.
+This macro accepts no arguments, but the \f[I]ADD\f[R] macro does.
+.PP
+.\" -------------------------------------
+.SS The ADD macro
+Sum two numbers and return the result.
+.PP
+.in +4n
+.EX
+#define ADD(X,Y)
+.EE
+.in
+.PP
+This is a type-generic macro for performing addition between two numeric types.
+The left-side is given as \f[I]X\f[R] and the right-side is given as \f[I]Y\f[R] and the result of adding them is returned.

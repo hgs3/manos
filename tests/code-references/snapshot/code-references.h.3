@@ -1,0 +1,59 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+code-references.h \- code examples
+.\" --------------------------------------------------------------------------
+.SH SYNOPSIS
+.nf
+.B #include <code-references.h>
+.fi
+.\" --------------------------------------------------------------------------
+.SH DESCRIPTION
+Recognition of the inherent dignity and of the equal and inalienable rights of all members of the human family.
+The foundation of freedom, justice and peace in the world.
+Disregard and contempt for human rights have resulted in barbarous acts which have outraged the conscience of mankind.
+The advent of a world in which human beings shall enjoy freedom from fear and want has been proclaimed as the highest aspiration of the common people.
+.PP
+.in +4n
+.EX
+// https://google.com
+int main(void) {
+    struct Foo foo = {0};
+    foobar(&foo);
+    return 0;
+}
+.EE
+.in
+.PP
+Whereas it is essential to promote the development of friendly relations between nations.
+.PP
+This is a code blurb that referenes \f[V]Foo\f[R] and \f[V]foobar\f[R] which should NOT be linked.
+.\" -------------------------------------
+.SS The Foo structure
+This is a structure.
+.PP
+.in +4n
+.EX
+struct Foo {
+    int bar;
+};
+.EE
+.in
+.PP
+The following is a code example that references \f[I]struct Foo\f[R] and \f[B]foobar\f[R](3).
+.PP
+.in +4n
+.EX
+struct Foo fb = {0};
+fb.bar = 42;
+foobar(&fb);
+.EE
+.in
+.PP
+.\" -------------------------------------
+.SS Functions
+.TP
+.BR foobar (3)
+This is a function.
+.\" --------------------------------------------------------------------------
+.SH SEE ALSO
+.BR foobar (3)
