@@ -5,16 +5,19 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "manos"
 version = "0.2.0"
-license = { file = "LICENSE" }
+license = { text = "GPL v3.0" }
 description = "Generate man pages for C projects using Doxygen."
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Documentation",
 ]
 dependencies = [
   "lxml == 5.0.0",
@@ -22,10 +25,8 @@ dependencies = [
 ]
 
 [project.urls]
-homepage = "https://github.com/hgs3/manos"
-documentation = "https://github.com/hgs3/manos"
-repository = "https://github.com/hgs3/manos"
-changelog = "https://github.com/hgs3/manos/CHANGELOG.md"
+Source = "https://github.com/hgs3/manos.git"
+Changelog = "https://github.com/hgs3/manos/blob/master/CHANGELOG.md"
 
 [project.scripts]
 manos = "manos.__main__:start"
