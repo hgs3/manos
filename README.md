@@ -5,6 +5,8 @@
 Manos does **not** require any modifications to your project, code comments, or Doxygen configuration file.
 
 [![Build Status](https://github.com/hgs3/manos/actions/workflows/build.yml/badge.svg)](https://github.com/hgs3/manos/actions/workflows/build.yml)
+&nbsp;
+[![PyPI - Version](https://img.shields.io/pypi/v/manos)](https://pypi.org/project/manos/)
 
 ## Why?
 
@@ -17,7 +19,7 @@ Manos corrects these shortcomings by generating a man page per-function and with
 Manos requires Python 3.10 or newer and Doxygen 1.9.2 or newer.
 
 Install the project through git checkout or install using your package management tool of choice.
-In these example `pip` is used.
+In these example pip is used.
 
 ```
 $ pip install manos
