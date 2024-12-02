@@ -67,7 +67,8 @@ def process(doxyfile: str,
     This function should **not** raise any exceptions.
     """
 
-    from .__main__ import Arguments, main
+    from .__main__ import main
+    from .option import Arguments
     args = Arguments()
     args.output = output_dir
     args.section = section

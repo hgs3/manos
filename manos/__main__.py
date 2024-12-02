@@ -13,7 +13,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from typing import List, Set, Dict, Tuple, Union, Optional, TextIO, TypeAlias, cast
+from typing import List, Set, Dict, Tuple, Optional, TextIO, cast
 from io import TextIOWrapper
 
 import lxml
@@ -24,608 +24,12 @@ import subprocess
 import glob
 import shutil
 import argparse
-import math
 import datetime
 import re
 
-from .ordered_set import OrderedSet
-from .sentence import segment
-
-class Arguments(argparse.Namespace):
-    def __init__(self) -> None:
-        self.doxyfile = ""
-        self.output = "man"
-        self._synopsis: List[List[str]] = []
-        self.synopsis: Set[str] = set()
-        self.function_parameters = False
-        self.macro_parameters = False
-        self.composite_fields = False
-        self.topic: Optional[str] = None
-        self.section = 3
-        self.include_path = "short"
-        self.footer_middle: Optional[str] = None
-        self.footer_inside: Optional[str] = None
-        self.header_middle: Optional[str] = None
-        self.autofill = False
-        self.preamble_file: Optional[str] = None
-        self.epilogue_file: Optional[str] = None
-        self.preamble: Optional[str] = None
-        self.epilogue: Optional[str] = None
-        self.pattern: Optional[str] = None
-        self.suppress_output = False
-        self.stdout: TextIO = sys.stdout
-        self.stderr: TextIO = sys.stderr
-        self.doxygen_settings: List[Tuple[str,str]] = []
-
-    def finish(self) -> None:
-        for sublist in self._synopsis:
-            for item in sublist:
-                self.synopsis.add(item)
-        if self.suppress_output:
-            self.stdout = open(os.devnull, 'w')
-            self.stderr = open(os.devnull, 'w')
-
-class Field:
-    def __init__(self) -> None:
-        self.type = "void"
-        self.name = "unnamed"
-        self.argstring = ""
-        self.brief = ""
-        self.description = Roff()
-
-class CompositeType:
-    def __init__(self, is_struct: bool, name: str, element: lxml.etree._Element) -> None:
-        self.is_struct = is_struct
-        self.element: Optional[lxml.etree._Element] = element
-        self.name = name
-        self.brief = ""
-        self.description = Roff()
-        self.fields: List[Field] = []
-
-    @property
-    def is_union(self) -> bool:
-        return not self.is_struct
-
-class Function:
-    def __init__(self, name: str, group_id: Optional[str] = None) -> None:
-        self.name = name
-        self.params: Set[str] = set()
-        self.group_id = group_id
-
-class Enum:
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-class EnumElement:
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-class Typedef:
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-class Define:
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-# Doxygen group XML.
-class Group:
-    def __init__(self, id: str) -> None:
-        self.id = id
-        self.functions: OrderedSet[str] = OrderedSet()
-
-# Doxygen example XML.
-class Example:
-    def __init__(self, description: lxml.etree._Element) -> None:
-        self.description = description
-
-Compound: TypeAlias = Union[CompositeType, Group, Enum, Function, Typedef, EnumElement, Define]
-
-class Text:
-    def __init__(self, content: str) -> None:
-        self.content = content
-
-# This is identical to 'Text' except it is output as-is without any special processing.
-# It is intended for literal blocks, like code examples.
-class CodeLine:
-    def __init__(self, source: str) -> None:
-        assert source.find("\n") == -1, "code line cannot contain a new line character"
-        self.source = source
-
-class Macro:
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-RoffElements = Union[Text, Macro, CodeLine]
-
-class State:
-    def __init__(self) -> None:
-        self.project_name: Optional[str] = None
-        self.project_brief: Optional[str] = None
-        self.project_version: Optional[str] = None
-        self.examples: Dict[str, List[Example]] = {}
-        self.compounds: Dict[str, Compound] = {}
-
-state = State()
-args = Arguments()
-
-class Roff:
-    def __init__(self) -> None:
-        self.entries: List[RoffElements] = []
-
-    def is_text(self) -> bool:
-        for entry in self.entries:
-            if not isinstance(entry, Text):
-                return False
-        return True
-
-    def append_roff(self, other: 'Roff') -> None:
-        self.entries += other.entries
-
-    def append_text(self, other: str) -> None:
-        # Special case: if the previous entry is a macro and the text being added begins
-        # with a dot, then the implementation will place said new text on its own line.
-        # This is a problem because that new line begins with dot and therefore Roff
-        # will interpret it as the beginning of a macro. If this situtation happens
-        # then escape the dot so Roff treats it as text.
-        if other.startswith("."):
-            if len(self.entries) > 0:
-                if isinstance(self.entries[-1], Macro):
-                    other = r"\[char46]" + other[1:]  # Escape the first dot.
-        self.entries.append(Text(other))
-
-    def append_source(self, other: str) -> None:
-        self.entries.append(CodeLine(other))
-
-    def append_macro(self, other: str) -> None:
-        roff = Roff()
-        roff.entries.append(Macro(other))
-        self.append_roff(roff)
-
-    def copy(self) -> 'Roff':
-        copy = Roff()
-        copy.entries = self.entries.copy()
-        return copy
-
-    def filter(self) -> List[RoffElements]:
-        keep: List[RoffElements] = []
-        prev: Optional[RoffElements] = None
-        for curr in self.entries:
-            if isinstance(curr, Text):
-                # Only keep non-blank text lines.
-                if len(curr.content.strip()) > 0:
-                    keep.append(curr)
-                    prev = curr
-            elif isinstance(curr, CodeLine):
-                keep.append(curr)
-                prev = curr
-            elif isinstance(curr, Macro):
-                # If the first commands are .PP commands (indicating a new paragraph), then
-                # remove them as this is implied.
-                if prev is None and curr.name == ".PP":
-                    continue
-                # Do not add duplicate .PP commands in a row.
-                elif not (isinstance(prev, Macro) and prev.name == curr.name and prev.name == ".PP"):
-                    keep.append(curr)
-                    prev = curr
-        # Remove trailing paragraph breaks.
-        while len(keep) > 0 and isinstance(keep[-1], Macro) and keep[-1].name == ".PP":
-            keep.pop()
-        return keep
-    
-    def simplify(self) -> 'Roff':
-        copy = self.copy()
-        copy.entries = copy.filter()
-        return copy
-    
-    def has_command(self, index: int, command: str) -> bool:
-        entry = self.entries[index]
-        if isinstance(entry, Macro) and entry.name == command:
-            return True
-        return False
-    
-    def pop(self, index: int) -> RoffElements:
-        return self.entries.pop(index)
-
-    def __len__(self) -> int:
-        return len(self.entries)
-
-    def __str__(self) -> str:
-        # Coalesce neighboring Text blocks into a single text block.
-        # This is needed so sentence segmentation is performed on the entire string.
-        entries: List[RoffElements] = []
-        textblob = ""
-        for curr in self.filter():
-            if isinstance(curr, Text):
-                textblob += curr.content
-            else:
-                if len(textblob) > 0:
-                    entries.append(Text(textblob))
-                    textblob = ""
-                entries.append(curr)
-        if len(textblob) > 0:
-            entries.append(Text(textblob))
-
-        # Concatenate all macros and text blocks.
-        text = ""
-        prev: Optional[RoffElements] = None
-        for curr in entries:
-            # Put roff macros on their own lines.
-            if isinstance(curr, Macro):
-                # Add a new line unless were at the beginning of the string.
-                # Thie ensures macros are always on their own line.
-                if len(text) > 0:
-                    text += "\n"
-                text += curr.name
-            elif isinstance(curr, CodeLine):
-                # If the previous entry was a macro, then add a new line after it.
-                if isinstance(prev, Macro):
-                    text += "\n"
-                # If the previous entry was code, then append a new line.
-                # This ensures each line of code is seperated onto their own line.
-                elif isinstance(prev, CodeLine):
-                    text += "\n"
-                text += curr.source
-            elif isinstance(curr, Text):
-                # If the previous entry was a macro or source code, then add a new line after it.
-                # This deliminates code/macros from paragraph text.
-                if isinstance(prev, Macro) or isinstance(prev, CodeLine):
-                    text += "\n"
-                text += "\n".join(segment(curr.content))
-            prev = curr
-        return text
-
-class Context:
-    def __init__(self, ignore_refs: bool = False) -> None:
-        self.ignore_refs = ignore_refs
-        self.referenced_functions: OrderedSet[str] = OrderedSet()
-        self.authors: List[Roff] = []
-        self.bugs: List[Roff] = []
-        self.examples: List[Roff] = []
-        self.deprecated: List[Roff] = []
-        self.return_type: Optional[Roff] = None
-        self.function_params: Optional[Roff] = None
-        self.active_function: Optional[Function] = None
-
-    def clear_signature(self) -> None:
-        self.return_type = None
-        self.function_params = None
-
-def process_children(ctx: Context, elem: lxml.etree._Element) -> Roff:
-    # Compute the text for this node.
-    content = Roff()
-    if elem.text:
-        content.append_text(elem.text)
-    for child in elem:
-        content.append_roff(process_as_roff(ctx, child))
-        if child.tail:
-            content.append_text(child.tail)
-    return content
-
-def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
-    if elem is None:
-        return Roff()
-
-    # Space element.
-    if elem.tag == "sp":
-        roff = Roff()
-        roff.append_text(" ")
-        return roff
-
-    # Bold.
-    if elem.tag == "bold":
-        content = process_children(ctx, elem)
-        roff = Roff()
-        roff.append_text(f"\\f[B]{content}\\f[R]")
-        return roff
-
-    # Italic.
-    if elem.tag == "emphasis":
-        content = process_children(ctx, elem)
-        roff = Roff()
-        roff.append_text(f"\\f[I]{content}\\f[R]")
-        return roff
-
-    # Strikethrough
-    if elem.tag == "strike":
-        print("warning: ignoring \\strike command", file=args.stdout)
-        return process_children(ctx, elem)
-
-    # Styling when using inline code experts, i.e. "\c foobar" or "`foobar`" in markdown syntax.
-    if elem.tag == "computeroutput":
-        ctx.ignore_refs = True # Ignore to prevent unwanted styling of recognized types and functions.
-        content = process_children(ctx, elem)
-        ctx.ignore_refs = False
-        if content.is_text():
-            raw_text = str(content)
-            # Doxygen represents function parameters identically to inline code snippets in its generated XML.
-            # To deduce which is which, check if the XML for a function is being processed and if so, then
-            # check if what is being processed matches a function parameter.
-            if ctx.active_function is not None and raw_text in ctx.active_function.params:
-                roff = Roff()
-                roff.append_text(f'\\f[I]{raw_text}\\f[R]')
-                return roff
-            else:
-                roff = Roff()
-                roff.append_text(f'\\f[V]{raw_text}\\f[R]')
-                return roff
-        return content
-
-    # Paramter name styling.
-    if elem.tag == "parametername":
-        content = process_children(ctx, elem)
-        roff = Roff()
-        roff.append_text(f"\\f[I]{content}\\f[R]")
-        return roff
-
-    # Paragraph elements: Doxygen likes to wrap <para> elements around everything.
-    # This implementation strips the unneccessary <para> elements when processing the parent element.
-    if elem.tag == "para":
-        roff = Roff()
-        roff.append_macro(".PP")
-        roff.append_roff(process_children(ctx, elem))
-        return roff
-
-    # Special case: paramter list.
-    if elem.tag == "parameterlist":
-        kind = elem.get("kind")
-        if kind == "param":
-            content = Roff()
-            for parameteritem in elem.findall("parameteritem"):
-                params: List[str] = []
-                for parameternamelist in parameteritem.findall("parameternamelist"):
-                    for parametername in parameternamelist.findall("parametername"):
-                        params.append(process_text(parametername))
-                content.append_macro(".TP")
-                content.append_text(", ".join(params) + "\n")
-                content.append_text(process_description(ctx, parameteritem.find("parameterdescription")))
-            ctx.function_params = content
-        elif kind == "retval":
-            content = Roff()
-            for parameteritem in elem.findall("parameteritem"):
-                retvals: List[str] = []
-                for parameternamelist in parameteritem.findall("parameternamelist"):
-                    for parametername in parameternamelist.findall("parametername"):
-                        retvals.append(process_text(parametername))
-                content.append_macro(".TP")
-                content.append_text(", ".join(retvals) + "\n")
-                content.append_text(process_description(ctx, parameteritem.find("parameterdescription")))
-            ctx.return_type = content
-        return Roff()
-
-    # Anchor tags are meant to be linked to but have no usage in man pages.
-    if elem.tag == "anchor":
-        return process_children(ctx, elem)
-
-    # Check for internal references, i.e. a reference to a C function or struct.
-    if elem.tag == "ref":
-        # If this is a reference to a C function defined by the API, then emit it
-        # as a man page reference, i.e. the function "foobar" should appear as
-        # the bolded text "foobar (3)" in the man page.
-        content = process_children(ctx, elem)
-        if not ctx.ignore_refs and content.is_text():
-            refid_xml = elem.get("refid")
-            if refid_xml is not None and refid_xml in state.compounds:
-                compound = state.compounds[refid_xml]
-                if isinstance(compound, Function):
-                    roff = Roff()
-                    roff.append_text(f"\\f[B]{compound.name}\\f[R](3)")
-                    ctx.referenced_functions.add(compound.name)
-                    return roff
-                elif isinstance(compound, CompositeType):
-                    roff = Roff()
-                    if compound.is_struct:
-                        roff.append_text(f"\\f[I]struct {compound.name}\\f[R]")
-                    else:
-                        roff.append_text(f"\\f[I]union {compound.name}\\f[R]")
-                    return roff
-                elif isinstance(compound, Enum):
-                    roff = Roff()
-                    roff.append_text(f"\\f[I]enum {compound.name}\\f[R]")
-                    return roff
-                elif isinstance(compound, EnumElement):
-                    roff = Roff()
-                    roff.append_text(f"\\f[I]{compound.name}\\f[R]")
-                    return roff
-                elif isinstance(compound, Typedef):
-                    roff = Roff()
-                    roff.append_text(f"\\f[I]{compound.name}\\f[R]")
-                    return roff
-                elif isinstance(compound, Define):
-                    roff = Roff()
-                    roff.append_text(f"\\f[I]{compound.name}\\f[R]")
-                    return roff
-        return content
-
-    # Check for an external URL link, i.e. a link to a webpage.
-    if elem.tag == "ulink":
-        url = elem.get("url")
-        roff = Roff()
-        roff.append_macro(f".UR {url}")
-        roff.append_roff(process_children(ctx, elem))
-        roff.append_macro(".UE")
-        return roff
-
-    # Sections and subsections.
-    # The element tag name has the section depth appended as a number, e.g. <sect1>, <sect2>, etc...
-    if elem.tag.startswith("sect"):
-        section_depth = int(elem.tag[4:])
-        if section_depth > 1:
-            print("warning: flattening subsections", file=args.stdout)
-        title_xml = elem.find("title")
-        assert title_xml is not None
-        title = title_xml.text or ""
-        title = title.capitalize() # Man page sections should be lowercase with the first letter uppercased.
-        roff = Roff()
-        roff.append_macro(f".SS {title}")
-        roff.append_roff(process_children(ctx, elem))
-        return roff
-
-    # Title elements should be extracted manually by their parent element.
-    # Their content should not be emitted here otherwise it will appear
-    # twice in the output.
-    if elem.tag == "title":
-        return Roff()
-
-    # Ordered and undordered list.
-    if elem.tag in ["orderedlist", "itemizedlist"]:
-        roff = Roff()
-        roff.append_macro(".RS")
-        for index,child in enumerate(elem):
-            assert child.tag == "listitem", "expected <listitem> as child of list"
-            listitem = Roff()
-            if elem.tag == "itemizedlist":
-                listitem.append_macro(".IP \\[bu] 2")
-            else:
-                index += 1
-                indent = int(math.log(index, 10)) + 3
-                listitem.append_macro(f".IP {index}. {indent}")
-            listitem.append_roff(process_children(ctx, child))
-            # Lists should NOT begin with a .PP macro otherwise Roff will begin a new paragraph
-            # which puts the content of the list item on the next line below the bullet point.
-            # Unfortunatly, Doxygen's XML output likes to insert a <para> element as an
-            # immediate child of the <listitem> element; the following check catches
-            # and removes it.
-            if len(listitem) > 2 and listitem.has_command(1, ".PP"):
-                listitem.pop(1)
-            listitem.entries = list(filter(lambda x: not (isinstance(x, Macro) and x.name == ".PP"), listitem.entries)) 
-            roff.append_roff(listitem)
-        roff.append_macro(".RE")
-        return roff
-
-    # Multi-line source code examples.
-    if elem.tag == "programlisting":
-        # Do not style references to types in code examples.
-        # Normally, when something is referenced, like a function, it is emphasized
-        # e.g. the function "foobar" becomes ".BR foober (3)" but for code examples
-        # this behavior should be disabled.
-        ctx.ignore_refs = True
-        roff = Roff()
-        roff.append_macro(".PP")
-        roff.append_macro(".in +4n")
-        roff.append_macro(".EX")
-        for codeline in elem:
-            assert codeline.tag == "codeline", "expected <codeline> element in <programlisting>"
-            text = ""
-            for entry in process_children(ctx, codeline).entries:
-                assert isinstance(entry, Text)
-                text += entry.content
-            roff.append_source(text)
-        roff.append_macro(".EE")
-        roff.append_macro(".in")
-        roff.append_macro(".PP")
-        ctx.ignore_refs = False
-        return roff
-    
-    # The <highlight> elements appears in <programlisting> blocks.
-    # They are used to indicate which keywords are to be highlighted.
-    # Styling isn't applied to code examples in man page output so return their content as-is.
-    if elem.tag == "highlight":
-        return process_children(ctx, elem)
-
-    # The <simplesect> element is used to contain function parameters, return type, and admonitions.
-    if elem.tag == "simplesect":
-        kind = elem.get("kind")
-        if kind == "par":
-            roff = Roff()
-            roff.append_roff(process_children(ctx, elem))
-            return roff
-        elif kind == "return":
-            ctx.return_type = process_children(ctx, elem)
-            return Roff()
-        elif kind == "see":
-            # Visit the child elements but discard the Roff result. The purpose
-            # for visiting the children is to check what's being referenced:
-            # If it's a function, then it will be added to the SEE ALSO
-            # section of the man page (see "ref" element handler).
-            process_children(ctx, elem)
-            return Roff()
-        elif kind in ["since", "note", "warning", "attention"]:
-            print("warning: excluding admonition from generated documentation", file=args.stdout)
-            return Roff()
-        elif kind in ["author", "authors"]:
-            ctx.authors.append(process_children(ctx, elem))
-            return Roff()
-        else:
-            raise Exception("unknown simplesect kind", kind)
-
-    # Referencable section.
-    if elem.tag == "xrefsect":
-        title_xml = elem.find("xreftitle")
-        if title_xml is not None and title_xml.text is not None:
-            if title_xml.text == "Bug":
-                description_xml = elem.find("xrefdescription")
-                assert description_xml is not None
-                ctx.bugs.append(process_children(ctx, description_xml))
-            elif title_xml.text == "Deprecated":
-                description_xml = elem.find("xrefdescription")
-                assert description_xml is not None
-                ctx.deprecated.append(process_children(ctx, description_xml))
-            else:
-                print("warning: unsupported xrefsect: {0}".format(title_xml.text), file=args.stdout)
-        return Roff()
-    
-    # Move to the next line.
-    if elem.tag == "linebreak":
-        roff = Roff()
-        roff.append_macro(".br")
-        return roff
-
-    # Ignore index tags as they're only useful for LaTeX and DocBook formats.
-    # They have no use in man pages so no warning is needed.
-    if elem.tag == "indexentry":
-        return Roff()
-    
-    # This element appears in various parts of the documentation, i.e. to indicate the type of a struct field.
-    # Just visit its children without any other special handling.
-    if elem.tag == "type":
-        return process_children(ctx, elem)
-
-    # Misc tags to visit that might be encountered during normal parsing.
-    # Don't do anything special with them, just visit their children.
-    if elem.tag in ["briefdescription", "detaileddescription", "parameterdescription"]:
-        return process_children(ctx, elem)
-
-    # Ignore all other commands.
-    if elem.tag in ["emoji", "table", "image", "formula"]:
-        print("warning: ignoring \\{0} command".format(elem.tag), file=args.stdout)
-        return Roff()
-
-    # Misc tags: https://www.doxygen.nl/manual/htmlcmds.html
-    tags = {
-        "ndash": "\\[en]",
-        "mdash": "\\[em]",
-    }
-    if elem.tag in tags:
-        roff = Roff()
-        roff.append_text(tags[elem.tag])
-        return roff
-
-    # Raise an exception for unknown tags so we're alerted
-    # to then and can properly deal with it.
-    raise Exception("unknown node", elem.tag)
-
-def process_brief(elem: Optional[lxml.etree._Element]) -> str:
-    # Brief descriptions should consist of a single line so remove any
-    # commands, like .PP, because they will force text onto another line.
-    roff = process_as_roff(Context(True), elem)
-    roff.entries = list(filter(lambda x: isinstance(x, Text), roff.entries))
-    return str(roff).strip()
-
-def process_description(ctx: Context, elem: Optional[lxml.etree._Element]) -> str:
-    roff = process_as_roff(ctx, elem)
-    return str(roff)
-
-def process_text(elem: Optional[lxml.etree._Element]) -> str:
-    text = ""
-    if elem is not None:
-        if elem.text:
-            text += elem.text
-        for child in elem:
-            text += process_text(child)
-            if child.tail:
-                text += child.tail
-    return text.strip()
+from .option import args, Arguments
+from .roff import Roff
+from . import doxygen as du
 
 def lowerify(text: str) -> str:
     if len(text) == 0:
@@ -637,7 +41,7 @@ def lowerify(text: str) -> str:
 def briefify(brief: str) -> str:
     return lowerify(brief).rstrip('.') # Remove trailing punctuation.
 
-def emit_special_sections(ctx: Context, file: TextIOWrapper) -> None:
+def emit_special_sections(ctx: du.Context, file: TextIOWrapper) -> None:
     if len(ctx.deprecated) > 0:
         file.write('.\\" --------------------------------------------------------------------------\n')
         file.write('.SH DEPRECATION\n')
@@ -689,14 +93,14 @@ def emit_special_sections(ctx: Context, file: TextIOWrapper) -> None:
 
 # Construct the '.TH' macro.
 def heading() -> str:
-    assert state.project_name is not None
+    assert du.state.project_name is not None
     params: List[str] = []
 
     # The '.TH' macro always includes topic and section number.
     if args.topic is not None:
         params.append(f'"{args.topic}"')
     else:
-        params.append(f'"{state.project_name.upper()}"')
+        params.append(f'"{du.state.project_name.upper()}"')
     params.append(f'"{args.section}"')
 
     # Optional the '.TH' macro may include a footer-middle...
@@ -717,8 +121,8 @@ def heading() -> str:
     # ... and a footer-inside.
     if args.footer_inside is not None:
         params.append(f'"{args.footer_inside}"')
-    elif args.autofill and state.project_version is not None:
-        params.append(f'"{state.project_name} {state.project_version}"')
+    elif args.autofill and du.state.project_version is not None:
+        params.append(f'"{du.state.project_name} {du.state.project_version}"')
     else:
         params.append("")
 
@@ -738,9 +142,39 @@ def heading() -> str:
     th += "\n"
     return th
 
+def generate_enum(enum: du.Enum) -> None:
+    roff = Roff()
+    roff.append_macro(".SH NAME")
+    roff.append_text(f'{enum.name} \\- {briefify(enum.brief)}')
+
+    if du.state.project_brief is not None:
+        roff.append_macro('.SH LIBRARY')
+        roff.append_text(du.state.project_brief.strip())
+    roff.append_macro('.SH SYNOPSIS')
+    roff.append_macro('.nf')
+    #file.write(f'.B #include <{header_display_name}>\n')
+    roff.append_macro('.PP')
+    roff.append_text(f'enum {enum.name} {{\n')
+    for elem in enum.elements:
+        roff.append_text(f'    {elem.name},\n')
+    roff.append_text('};')
+    roff.append_macro('.fi')
+    roff.append_macro('.SH DESCRIPTION')
+    roff.append_roff(enum.description)
+
+    # Write the file.
+    file = open(output_path(f"{enum.name}.3"), "w", encoding="utf-8")
+    if args.preamble is not None:
+        file.write(args.preamble)
+    file.write(heading())
+    file.write(str(roff))
+    if args.epilogue is not None:
+        file.write(args.epilogue)
+    file.close()
+
 def parse_function_signature(element: lxml.etree._Element) -> str:
-    type = process_text(element.find("type"))
-    name = process_text(element.find("name"))
+    type = du.process_text(element.find("type"))
+    name = du.process_text(element.find("name"))
     signature = f'.BI "{type}'
     # If the return type ends with an astrisk, then that means it's a pointer type
     # and there should be no whitespace between it and the function name.
@@ -749,7 +183,7 @@ def parse_function_signature(element: lxml.etree._Element) -> str:
     signature += f'{name}('
     params = element.findall("param")
     for index, param in enumerate(params):
-        param_type = process_text(param.find("type"))
+        param_type = du.process_text(param.find("type"))
         declname = param.find("declname")
         signature += param_type
         if declname is not None:
@@ -758,7 +192,7 @@ def parse_function_signature(element: lxml.etree._Element) -> str:
             if not param_type.endswith("*"):
                 signature += " "
             # Emit the name of the paramter.
-            param_name = process_text(declname)
+            param_name = du.process_text(declname)
             signature += f'" {param_name} "'
         # Add a comma between each parameter.
         if index < len(params) - 1:
@@ -770,25 +204,25 @@ def parse_function(element: lxml.etree._Element, header_display_name: str) -> No
     id = element.get("id")
     assert id is not None, "function must have a Doxygen assigned identifier"
 
-    ctx = Context()
-    if id in state.compounds:
-        compound = state.compounds[id]
-        if isinstance(compound, Function):
+    ctx = du.Context()
+    if id in du.state.compounds:
+        compound = du.state.compounds[id]
+        if isinstance(compound, du.Function):
             ctx.active_function = compound
 
-    name = process_text(element.find("name"))
-    brief = briefify(process_brief(element.find("briefdescription")))
-    description = process_description(ctx, element.find("detaileddescription"))
+    name = du.process_text(element.find("name"))
+    brief = briefify(du.process_brief(element.find("briefdescription")))
+    description = du.process_description(ctx, element.find("detaileddescription"))
     file = open(output_path(f"{name}.3"), "w", encoding="utf-8")
     if args.preamble is not None:
         file.write(args.preamble)
     file.write(heading())
     file.write(".SH NAME\n")
     file.write(f'{name} \\- {brief}\n')
-    if state.project_brief is not None:
+    if du.state.project_brief is not None:
         file.write('.\\" --------------------------------------------------------------------------\n')
         file.write('.SH LIBRARY\n')
-        file.write(state.project_brief.strip() + "\n")
+        file.write(du.state.project_brief.strip() + "\n")
     file.write('.\\" --------------------------------------------------------------------------\n')
     file.write('.SH SYNOPSIS\n')
     file.write('.nf\n')
@@ -816,15 +250,15 @@ def parse_function(element: lxml.etree._Element, header_display_name: str) -> No
         file.write("\n")
 
     # The function and group should have been discovered when preparsing the XML.
-    assert id in state.compounds, "function was not discovered during preparse"
-    compound = state.compounds[id]
-    if isinstance(compound, Function):
+    assert id in du.state.compounds, "function was not discovered during preparse"
+    compound = du.state.compounds[id]
+    if isinstance(compound, du.Function):
         group_id = compound.group_id
         if group_id is not None:
-            assert group_id in state.compounds, "group was not discovered during preparse"
+            assert group_id in du.state.compounds, "group was not discovered during preparse"
             # Add all functions belonging to the same group as this one to its SEE ALSO man page section.
-            compound = state.compounds[group_id]
-            if isinstance(compound, Group):
+            compound = du.state.compounds[group_id]
+            if isinstance(compound, du.Group):
                 ctx.referenced_functions = ctx.referenced_functions.union(compound.functions)
 
     # Discard circular references, i.e. if this man page documents function X, then exclude
@@ -842,11 +276,11 @@ def output_path(file: str) -> str:
     return os.path.join(args.output, file)
 
 def parse_header(element: lxml.etree._Element) -> None:
-    ctx = Context()
-    header_name = process_text(element.find("compoundname"))
+    ctx = du.Context()
+    header_name = du.process_text(element.find("compoundname"))
     header_display_name = header_name
-    header_brief = briefify(process_brief(element.find("briefdescription")))
-    content = process_as_roff(ctx, element.find("detaileddescription"))
+    header_brief = briefify(du.process_brief(element.find("briefdescription")))
+    content = du.process_as_roff(ctx, element.find("detaileddescription"))
     functions = Roff()
     composite_types = Roff()
     typedefs = Roff()
@@ -861,15 +295,15 @@ def parse_header(element: lxml.etree._Element) -> None:
         if file_xml is not None:
             if args.include_path == "full":
                 header_display_name = file_xml
-            if file_xml in state.examples:
-                for example in state.examples[file_xml]:
-                    ctx.examples.append(process_as_roff(ctx, example.description))
+            if file_xml in du.state.examples:
+                for example in du.state.examples[file_xml]:
+                    ctx.examples.append(du.process_as_roff(ctx, example.description))
 
     for innerclass in element.findall("innerclass"):
         refid_xml = innerclass.get("refid")
         assert refid_xml is not None
-        compound = state.compounds[refid_xml]
-        assert isinstance(compound, CompositeType)
+        compound = du.state.compounds[refid_xml]
+        assert isinstance(compound, du.CompositeType)
         content.append_macro('.\\" -------------------------------------')
         if compound.is_struct:
             content.append_macro(f'.SS The {compound.name} structure')
@@ -917,145 +351,146 @@ def parse_header(element: lxml.etree._Element) -> None:
                     content.append_text(field.brief)
 
     for sectiondef in element.findall("sectiondef"):
-        kind = sectiondef.get("kind")
-        if kind == "func":
-            content.append_macro('.\\" -------------------------------------')
-            content.append_macro('.SS Functions')
-            for memberdef in sectiondef.findall("memberdef"):
-                name_xml = memberdef.find("name")
-                name = (name_xml.text or "") if name_xml is not None else ""
-                brief = process_brief(memberdef.find("briefdescription"))
-                content.append_macro('.TP')
-                content.append_macro(f'.BR {name} (3)')
-                content.append_text(brief)
-                functions.append_macro(parse_function_signature(memberdef))
-                ctx.referenced_functions.add(name)
-        elif kind == "typedef":
-            for memberdef in sectiondef.findall("memberdef"):
-                name_xml = memberdef.find("name")
-                if name_xml is not None and name_xml.text is not None:
-                    type_xml = memberdef.find("type")
-                    if type_xml is not None:
-                        type_content = process_brief(type_xml)
-                        brief = process_brief(memberdef.find("briefdescription"))
-                        description_roff = process_as_roff(ctx, memberdef.find("detaileddescription"))
-                        content.append_macro('.\\" -------------------------------------')
-                        content.append_macro(f'.SS The {name_xml.text} type')
-                        content.append_text(brief)
-                        content.append_macro('.PP')
-                        content.append_macro('.in +4n')
-                        content.append_macro('.EX')
-                        # If the type being aliased ends with an astrisk, then that means it's a pointer
-                        # type and there should be no whitespace between it the name of the alias.
-                        if type_content.endswith("*"):
-                            content.append_source(f"typedef {type_content}{name_xml.text};")
-                            typedefs.append_macro(f".B typedef {type_content}{name_xml.text};")
-                        else:
-                            content.append_source(f"typedef {type_content} {name_xml.text};")
-                            typedefs.append_macro(f".B typedef {type_content} {name_xml.text};")
-                        content.append_macro('.EE')
-                        content.append_macro('.in')
-                        content.append_macro('.PP')
-                        content.append_roff(description_roff)
-        elif kind == "enum":
-            for memberdef in sectiondef.findall("memberdef"):
-                name_xml = memberdef.find("name")
-                if name_xml is not None and name_xml.text is not None:
-                    brief = process_brief(memberdef.find("briefdescription"))
-                    description_roff = process_as_roff(ctx, memberdef.find("detaileddescription"))
-                    content.append_macro('.\\" -------------------------------------')
-                    content.append_macro(f'.SS The {name_xml.text} enumeration')
-                    content.append_text(brief)
-                    content.append_macro('.PP')
-                    content.append_macro('.in +4n')
-                    content.append_macro('.EX')
-                    content.append_source(f'enum {name_xml.text} {{')
-                    enums.append_macro(f'.B enum {name_xml.text} {{')
-                    for enumval in memberdef.findall('enumvalue'):
-                        name = process_text(enumval.find('name'))
-                        content.append_source('    {0},'.format(name))
-                        enums.append_macro('.B "    {0},"'.format(name))
-                    content.append_source('};')
-                    enums.append_macro('.B };')
-                    content.append_macro('.EE')
-                    content.append_macro('.in')
-                    content.append_macro('.PP')
-                    content.append_roff(description_roff)
-                    content.append_macro('.PP')
-                    for enumval in memberdef.findall("enumvalue"):
-                        name = process_text(enumval.find("name"))
-                        brief = process_brief(enumval.find("briefdescription"))
-                        if len(brief) > 0:
-                            description_roff = process_as_roff(ctx, enumval.find("detaileddescription")).simplify()
-                            content.append_macro(".TP")
-                            content.append_macro(f".I {name}")
-                            content.append_text(brief)
-                            if len(description_roff) > 0:
-                                content.append_macro(".PP")
-                                content.append_roff(description_roff)
-        elif kind == "var":
-            for memberdef in sectiondef.findall("memberdef"):
-                name_xml = memberdef.find("name")
-                if name_xml is not None and name_xml.text is not None:
-                    brief = process_brief(memberdef.find("briefdescription"))
-                    description_roff = process_as_roff(ctx, memberdef.find("detaileddescription"))
-                    type_xml = memberdef.find("type")
+        for memberdef in sectiondef.findall("memberdef"):
+            kind = memberdef.get("kind")
+            if kind == "function":
+                content.append_macro('.\\" -------------------------------------')
+                content.append_macro('.SS Functions')
+                for memberdef in sectiondef.findall("memberdef"):
                     name_xml = memberdef.find("name")
-                    if type_xml is not None and type_xml.text is not None \
-                        and name_xml is not None and name_xml.text is not None:
-                        argsstring = process_text(memberdef.find("argsstring"))
+                    name = (name_xml.text or "") if name_xml is not None else ""
+                    brief = du.process_brief(memberdef.find("briefdescription"))
+                    content.append_macro('.TP')
+                    content.append_macro(f'.BR {name} (3)')
+                    content.append_text(brief)
+                    functions.append_macro(parse_function_signature(memberdef))
+                    ctx.referenced_functions.add(name)
+            elif kind == "typedef":
+                for memberdef in sectiondef.findall("memberdef"):
+                    name_xml = memberdef.find("name")
+                    if name_xml is not None and name_xml.text is not None:
+                        type_xml = memberdef.find("type")
+                        if type_xml is not None:
+                            type_content = du.process_brief(type_xml)
+                            brief = du.process_brief(memberdef.find("briefdescription"))
+                            description_roff = du.process_as_roff(ctx, memberdef.find("detaileddescription"))
+                            content.append_macro('.\\" -------------------------------------')
+                            content.append_macro(f'.SS The {name_xml.text} type')
+                            content.append_text(brief)
+                            content.append_macro('.PP')
+                            content.append_macro('.in +4n')
+                            content.append_macro('.EX')
+                            # If the type being aliased ends with an astrisk, then that means it's a pointer
+                            # type and there should be no whitespace between it the name of the alias.
+                            if type_content.endswith("*"):
+                                content.append_source(f"typedef {type_content}{name_xml.text};")
+                                typedefs.append_macro(f".B typedef {type_content}{name_xml.text};")
+                            else:
+                                content.append_source(f"typedef {type_content} {name_xml.text};")
+                                typedefs.append_macro(f".B typedef {type_content} {name_xml.text};")
+                            content.append_macro('.EE')
+                            content.append_macro('.in')
+                            content.append_macro('.PP')
+                            content.append_roff(description_roff)
+            elif kind == "enum":
+                for memberdef in sectiondef.findall("memberdef"):
+                    name_xml = memberdef.find("name")
+                    if name_xml is not None and name_xml.text is not None:
+                        brief = du.process_brief(memberdef.find("briefdescription"))
+                        description_roff = du.process_as_roff(ctx, memberdef.find("detaileddescription"))
                         content.append_macro('.\\" -------------------------------------')
-                        content.append_macro(f'.SS The {name_xml.text} variable')
+                        content.append_macro(f'.SS The {name_xml.text} enumeration')
                         content.append_text(brief)
                         content.append_macro('.PP')
                         content.append_macro('.in +4n')
                         content.append_macro('.EX')
-                        # If the type being aliased ends with an astrisk, then that means it's a pointer
-                        # type and there should be no whitespace between it the variable name.
-                        if type_xml.text.endswith("*"):
-                            content.append_source(f'{type_xml.text}{name_xml.text}{argsstring};')
-                            variables.append_source(f'.B {type_xml.text}{name_xml.text}{argsstring};')
-                        else:
-                            content.append_source(f'{type_xml.text} {name_xml.text}{argsstring};')
-                            variables.append_macro(f'.B {type_xml.text} {name_xml.text}{argsstring};')
+                        content.append_source(f'enum {name_xml.text} {{')
+                        enums.append_macro(f'.B enum {name_xml.text} {{')
+                        for enumval in memberdef.findall('enumvalue'):
+                            name = du.process_text(enumval.find('name'))
+                            content.append_source('    {0},'.format(name))
+                            enums.append_macro('.B "    {0},"'.format(name))
+                        content.append_source('};')
+                        enums.append_macro('.B };')
                         content.append_macro('.EE')
                         content.append_macro('.in')
                         content.append_macro('.PP')
                         content.append_roff(description_roff)
                         content.append_macro('.PP')
-        elif kind == "define":
-            for memberdef in sectiondef.findall("memberdef"):
-                id = memberdef.get("id") ; assert id is not None
-                name_xml = memberdef.find("name")
-                if name_xml is not None and name_xml.text is not None and id is not None:
-                    signature = name_xml.text
-                    params = memberdef.findall("param")
-                    if len(params) > 0:
-                        signature += "("
-                        for index,param_xml in enumerate(params):
-                            signature += process_text(param_xml)
-                            if index < len(params) - 1:
-                                signature += ","
-                        signature += ")"
-                    brief = process_brief(memberdef.find("briefdescription"))
-                    ctx.clear_signature()
-                    description_roff = process_as_roff(ctx, memberdef.find("detaileddescription"))
-                    content.append_macro('.\\" -------------------------------------')
-                    content.append_macro(f'.SS The {name_xml.text} macro')
-                    content.append_text(brief)
-                    content.append_macro('.PP')
-                    content.append_macro('.in +4n')
-                    content.append_macro('.EX')
-                    content.append_source(f'#define {signature}')
-                    macros.append_macro(f'.B #define {signature}')
-                    content.append_macro('.EE')
-                    content.append_macro('.in')
-                    content.append_macro('.PP')
-                    content.append_roff(description_roff)
-                    content.append_macro('.PP')
-                    if ctx.function_params is not None and args.macro_parameters is True:
-                        content.append_text(f"The parameters to the\n.I {name_xml.text}\nmacro are as follows:\n")
-                        content.append_roff(ctx.function_params)
+                        for enumval in memberdef.findall("enumvalue"):
+                            name = du.process_text(enumval.find("name"))
+                            brief = du.process_brief(enumval.find("briefdescription"))
+                            if len(brief) > 0:
+                                description_roff = du.process_as_roff(ctx, enumval.find("detaileddescription")).simplify()
+                                content.append_macro(".TP")
+                                content.append_macro(f".I {name}")
+                                content.append_text(brief)
+                                if len(description_roff) > 0:
+                                    content.append_macro(".PP")
+                                    content.append_roff(description_roff)
+            elif kind == "var":
+                for memberdef in sectiondef.findall("memberdef"):
+                    name_xml = memberdef.find("name")
+                    if name_xml is not None and name_xml.text is not None:
+                        brief = du.process_brief(memberdef.find("briefdescription"))
+                        description_roff = du.process_as_roff(ctx, memberdef.find("detaileddescription"))
+                        type_xml = memberdef.find("type")
+                        name_xml = memberdef.find("name")
+                        if type_xml is not None and type_xml.text is not None \
+                            and name_xml is not None and name_xml.text is not None:
+                            argsstring = du.process_text(memberdef.find("argsstring"))
+                            content.append_macro('.\\" -------------------------------------')
+                            content.append_macro(f'.SS The {name_xml.text} variable')
+                            content.append_text(brief)
+                            content.append_macro('.PP')
+                            content.append_macro('.in +4n')
+                            content.append_macro('.EX')
+                            # If the type being aliased ends with an astrisk, then that means it's a pointer
+                            # type and there should be no whitespace between it the variable name.
+                            if type_xml.text.endswith("*"):
+                                content.append_source(f'{type_xml.text}{name_xml.text}{argsstring};')
+                                variables.append_source(f'.B {type_xml.text}{name_xml.text}{argsstring};')
+                            else:
+                                content.append_source(f'{type_xml.text} {name_xml.text}{argsstring};')
+                                variables.append_macro(f'.B {type_xml.text} {name_xml.text}{argsstring};')
+                            content.append_macro('.EE')
+                            content.append_macro('.in')
+                            content.append_macro('.PP')
+                            content.append_roff(description_roff)
+                            content.append_macro('.PP')
+            elif kind == "define":
+                for memberdef in sectiondef.findall("memberdef"):
+                    id = memberdef.get("id") ; assert id is not None
+                    name_xml = memberdef.find("name")
+                    if name_xml is not None and name_xml.text is not None and id is not None:
+                        signature = name_xml.text
+                        params = memberdef.findall("param")
+                        if len(params) > 0:
+                            signature += "("
+                            for index,param_xml in enumerate(params):
+                                signature += du.process_text(param_xml)
+                                if index < len(params) - 1:
+                                    signature += ","
+                            signature += ")"
+                        brief = du.process_brief(memberdef.find("briefdescription"))
+                        ctx.clear_signature()
+                        description_roff = du.process_as_roff(ctx, memberdef.find("detaileddescription"))
+                        content.append_macro('.\\" -------------------------------------')
+                        content.append_macro(f'.SS The {name_xml.text} macro')
+                        content.append_text(brief)
+                        content.append_macro('.PP')
+                        content.append_macro('.in +4n')
+                        content.append_macro('.EX')
+                        content.append_source(f'#define {signature}')
+                        macros.append_macro(f'.B #define {signature}')
+                        content.append_macro('.EE')
+                        content.append_macro('.in')
+                        content.append_macro('.PP')
+                        content.append_roff(description_roff)
+                        content.append_macro('.PP')
+                        if ctx.function_params is not None and args.macro_parameters is True:
+                            content.append_text(f"The parameters to the\n.I {name_xml.text}\nmacro are as follows:\n")
+                            content.append_roff(ctx.function_params)
 
     synopsis = Roff()
     synopsis.append_macro('.SH SYNOPSIS')
@@ -1089,10 +524,10 @@ def parse_header(element: lxml.etree._Element) -> None:
     file.write(heading())
     file.write(".SH NAME\n")
     file.write(f'{header_name} \\- {header_brief}\n')
-    if state.project_brief is not None:
+    if du.state.project_brief is not None:
         file.write('.\\" --------------------------------------------------------------------------\n')
         file.write('.SH LIBRARY\n')
-        file.write(state.project_brief.strip() + "\n")
+        file.write(du.state.project_brief.strip() + "\n")
     file.write('.\\" --------------------------------------------------------------------------\n')
     file.write(str(synopsis))
     file.write("\n")
@@ -1119,21 +554,21 @@ def dequote(string: str) -> str:
         string = string[:-1]
     return string
 
-def preparse_xml(file: str) -> None:
-    tree = lxml.etree.parse(file)
+def preparse_xml(filename: str) -> None:
+    tree = lxml.etree.parse(filename)
     if tree.getroot().tag == "doxyfile":
         project_name_xml = cast(List[lxml.etree._Element], tree.xpath("//option[@id='PROJECT_NAME']/value"))
         project_brief_xml = cast(List[lxml.etree._Element], tree.xpath("//option[@id='PROJECT_BRIEF']/value"))
         project_number_xml = cast(List[lxml.etree._Element], tree.xpath("//option[@id='PROJECT_NUMBER']/value"))
         if len(project_name_xml) > 0:
             if text := project_name_xml[0].text:
-                state.project_name = dequote(text)
+                du.state.project_name = dequote(text)
         if len(project_brief_xml) > 0:
             if text := project_brief_xml[0].text:
-                state.project_brief = dequote(project_brief_xml[0].text)
+                du.state.project_brief = dequote(project_brief_xml[0].text)
         if len(project_number_xml) > 0:
             if text := project_number_xml[0].text:
-                state.project_version = dequote(project_number_xml[0].text)
+                du.state.project_version = dequote(project_number_xml[0].text)
         return
     element = tree.find("compounddef")
     if element is None:
@@ -1144,80 +579,71 @@ def preparse_xml(file: str) -> None:
     if language == "C++":
         # Doxygen writes docs for structs and unions in their own individual .xml files.
         if kind == "struct":
-            name_xml = element.find("compoundname")
-            if name_xml is not None:
-                if name_xml.text is not None:
-                    id = element.get("id")
-                    assert id is not None
-                    state.compounds[id] = CompositeType(True, name_xml.text, element)            
+            composite = du.CompositeType(id, True)
+            composite.name = du.process_text(element.find("compoundname"))
+            du.state.compounds[id] = composite
         elif kind == "union":
-            name_xml = element.find("compoundname")
-            if name_xml is not None:
-                if name_xml.text is not None:
-                    id = element.get("id")
-                    assert id is not None
-                    state.compounds[id] = CompositeType(False, name_xml.text, element)      
+            composite = du.CompositeType(id, False)
+            composite.name = du.process_text(element.find("compoundname"))
+            du.state.compounds[id] = composite
         elif kind == "file":
+            # Create a compound for the file.
+            id = element.get("id")
+            assert id is not None
+            name_xml = element.find("compoundname")
+            assert name_xml is not None
+            assert name_xml.text is not None
+            file = du.File(name_xml.text)
+            du.state.compounds[id] = file
             # Parse all other definitions.
             for sectiondef in element.findall("sectiondef"):
-                kind = sectiondef.get("kind")
-                if kind == "func":
-                    for memberdef in sectiondef.findall("memberdef"):
-                        name = process_text(memberdef.find("name"))
-                        if len(name) > 0:
-                            group_id: Optional[str] = None
-                            id = memberdef.get("id")
-                            if id is not None:
-                                if id.startswith("group__"):
-                                    endpos = id.index("_1")
-                                    if endpos > 0:
-                                        group_id = id[:endpos]
-                                function = Function(name, group_id)
-                                state.compounds[id] = function
-                                # Remember names of function parameter.
-                                # Note that the following XPath recursivly searches the XML.
-                                for param in memberdef.findall('.//parameterlist[@kind="param"]/*/*/parametername'):
-                                    if param.text is not None:
-                                        function.params.add(param.text)
-                elif kind == "typedef":
-                    for memberdef in sectiondef.findall("memberdef"):
-                        id = memberdef.get("id")
-                        assert id is not None
-                        name_xml = memberdef.find("name")
-                        if name_xml is not None and name_xml.text is not None:
-                            state.compounds[id] = Typedef(name_xml.text)
-                elif kind == "enum":
-                    for memberdef in sectiondef.findall("memberdef"):
-                        id = memberdef.get("id") ; assert id is not None
-                        name_xml = memberdef.find("name")
-                        if name_xml is not None and name_xml.text is not None and id is not None:
-                            state.compounds[id] = Enum(name_xml.text)
-                            # Store all enumeration members in the same dictionary as the enumeration itself.
-                            # This is done because when Doxygen references them it does so using a global identifier.
-                            for enumval in memberdef.findall("enumvalue"):
-                                id = enumval.get("id") ; assert id is not None
-                                name_xml = enumval.find("name")
-                                if name_xml is not None and name_xml.text is not None:
-                                    state.compounds[id] = EnumElement(name_xml.text)
-                elif kind == "define":
-                    for memberdef in sectiondef.findall("memberdef"):
-                        id = memberdef.get("id") ; assert id is not None
-                        name_xml = memberdef.find("name")
-                        if name_xml is not None and name_xml.text is not None and id is not None:
-                            state.compounds[id] = Define(name_xml.text)
+                for memberdef in sectiondef.findall("memberdef"):
+                    # Extract the unique identifiers for this compound.
+                    group_id: Optional[str] = None
+                    id = memberdef.get("id")
+                    assert id is not None
+                    if id.startswith("group__"):
+                        endpos = id.index("_1")
+                        if endpos > 0:
+                            group_id = id[:endpos]
+                    # Create an object for this compound.
+                    kind = memberdef.get("kind")
+                    if kind == "function":
+                        function = du.Function(id, group_id)
+                        function.name = du.process_text(memberdef.find("name"))
+                        du.state.compounds[id] = function
+                    elif kind == "typedef":
+                        typedef = du.Typedef(id, group_id)
+                        typedef.name = du.process_text(memberdef.find("name"))
+                        du.state.compounds[id] = typedef
+                    elif kind == "enum":
+                        enum = du.Enum(id, group_id)
+                        enum.name = du.process_text(memberdef.find("name"))
+                        du.state.compounds[id] = enum
+                        # Store all enumeration members in the same dictionary as the enumeration itself.
+                        # This is done because when Doxygen references them it does so using a global identifier.
+                        for enumval in memberdef.findall("enumvalue"):
+                            enumval_id = enumval.get("id")
+                            assert enumval_id is not None
+                            elem = du.EnumElement(enumval_id)
+                            elem.name = du.process_text(enumval.find("name"))
+                            enum.elements.append(elem)
+                            du.state.compounds[enumval_id] = elem
+                    elif kind == "define":
+                        define = du.Define(id, group_id)
+                        define.name = du.process_text(memberdef.find("name"))
+                        du.state.compounds[id] = define
+                    # Associate the compound with the file.
+                    if id in du.state.compounds:
+                        file.compounds.append(du.state.compounds[id])
     # Track all groups and the functions that belong to them.
     # This is used to reference all other functions under each functions SEE ALSO man page section.
     elif kind == "group":
-        group_id = element.get("id")
-        assert group_id is not None
-        group = Group(group_id)
-        for sectiondef in element.findall("sectiondef"):
-            if sectiondef.get("kind") == "func":
-                for memberdef in sectiondef.findall("memberdef"):
-                    name = process_text(memberdef.find("name"))
-                    if len(name) > 0:
-                        group.functions.add(name)
-        state.compounds[group_id] = group
+        id = element.get("id")
+        assert id is not None
+        group = du.Group(id)
+        group.name = du.process_text(element.find("name"))
+        du.state.compounds[id] = group
     # Extract examples to latter include in the associated header file.
     # The examples associated with said header file will be added
     # to the EXAMPLES man page section of said header file.
@@ -1228,33 +654,100 @@ def preparse_xml(file: str) -> None:
             and description_xml is not None:
             file_xml = location_xml.get("file")
             if file_xml is not None:
-                if file_xml in state.examples:
-                    state.examples[file_xml].append(Example(description_xml))
+                if file_xml in du.state.examples:
+                    du.state.examples[file_xml].append(du.Example(description_xml))
                 else:
-                    state.examples[file_xml] = [Example(description_xml)]
+                    du.state.examples[file_xml] = [du.Example(description_xml)]
 
-def parse_xml(file: str) -> None:
-    tree = lxml.etree.parse(file)
+def parse_xml(filename: str) -> None:
+    tree = lxml.etree.parse(filename)
     element = tree.find("compounddef")
     if element is None:
         return
+    kind = element.get("kind")
     # Only consider source files (e.g. ignore Markdown files).
     language = element.get("language")
-    if language != "C++":
-        return
-    kind = element.get("kind")
-    if kind == "file":
-        header_display_name: Optional[str] = None
-        location = element.find("location")
-        if location is not None and args.include_path == "full":
-            header_display_name = location.get("file")
-        if header_display_name is None:
-            header_display_name = process_text(element.find("compoundname"))
-        parse_header(element)
-        for sectiondef in element.findall("sectiondef"):
-            if sectiondef.get("kind") == "func":
+    if language == "C++":
+        # Doxygen writes docs for structs and unions in their own individual .xml files.
+        if kind in ["struct", "union"]:
+            compound = du.state.compounds[id]
+            assert isinstance(compound, du.CompositeType)
+            compound.brief = du.process_brief(element.find("briefdescription"))
+            compound.description = du.process_as_roff(du.Context(), element.find("detaileddescription"))
+            for sectiondef in element.findall("sectiondef"):
                 for memberdef in sectiondef.findall("memberdef"):
-                    parse_function(memberdef, header_display_name)
+                    field = du.Field()
+                    field.type = du.process_text(memberdef.find("type"))
+                    field.name = du.process_text(memberdef.find("name"))
+                    field.argstring = du.process_text(memberdef.find("argsstring"))
+                    field.brief = du.process_brief(memberdef.find("briefdescription"))
+                    field.description = du.process_as_roff(du.Context(), memberdef.find("detaileddescription"))
+                    compound.fields.append(field)
+        elif kind == "file":
+            # Create a compound for the file.
+            id = element.get("id")
+            assert id is not None
+            name_xml = element.find("compoundname")
+            assert name_xml is not None
+            assert name_xml.text is not None
+            file = du.File(name_xml.text)
+            du.state.compounds[id] = file
+            # Parse all other definitions.
+            for sectiondef in element.findall("sectiondef"):
+                for memberdef in sectiondef.findall("memberdef"):
+                    if id := memberdef.get("id"):
+                        compound = du.state.compounds[id]
+                        if isinstance(compound, du.Function) or isinstance(compound, du.Typedef) or isinstance(compound, du.Define):
+                            compound = du.state.compounds[id]
+                            compound.brief = du.process_brief(memberdef.find("briefdescription"))
+                            compound.description = du.process_description(memberdef.find("detaileddescription"))
+                        elif isinstance(compound, du.Enum):
+                            enum = du.state.compounds[id]
+                            enum.brief = du.process_brief(memberdef.find("briefdescription"))
+                            enum.description = du.process_description(memberdef.find("detaileddescription"))
+                            # Store all enumeration members in the same dictionary as the enumeration itself.
+                            # This is done because when Doxygen references them it does so using a global identifier.
+                            for enumval in memberdef.findall("enumvalue"):
+                                if enumval_id := enumval.get("id"):
+                                    elem = du.state.compounds[enumval_id]
+                                    elem.brief = du.process_brief(enumval.find("briefdescription"))
+                                    elem.description = du.process_description(enumval.find("detaileddescription"))
+                        # # Parse function arguments.
+                        # if isinstance(compound, du.Function):
+                        #     # Note that the following XPath recursivly searches the XML.
+                        #     for param in memberdef.findall('.//parameterlist[@kind="param"]/*/*/parametername'):
+                        #         if param.text is not None:
+                        #             function.params.add(param.text)
+    # Track all groups and the functions that belong to them.
+    # This is used to reference all other functions under each functions SEE ALSO man page section.
+    elif kind == "group":
+        if id := element.get("id"):
+            group = du.state.compounds[id]
+            group.brief = du.process_brief(element.find("brief"))
+            group.description = du.process_description(element.find("description"))
+
+# def parse_xml(file: str) -> None:
+#     tree = lxml.etree.parse(file)
+#     element = tree.find("compounddef")
+#     if element is None:
+#         return
+#     # Only consider source files (e.g. ignore Markdown files).
+#     language = element.get("language")
+#     if language != "C++":
+#         return
+#     kind = element.get("kind")
+#     if kind == "file":
+#         header_display_name: Optional[str] = None
+#         location = element.find("location")
+#         if location is not None and args.include_path == "full":
+#             header_display_name = location.get("file")
+#         if header_display_name is None:
+#             header_display_name = du.process_text(element.find("compoundname"))
+#         parse_header(element)
+#         for sectiondef in element.findall("sectiondef"):
+#             for memberdef in sectiondef.findall("memberdef"):
+#                 if memberdef.get("kind") == "function":
+#                     parse_function(memberdef, header_display_name)
 
 def exec(doxyfile: str) -> int:
     # Clone the doxyfile
@@ -1339,30 +832,18 @@ def exec(doxyfile: str) -> int:
 
     # There must be a project name specified in the Doxygen config.
     # If the user does not specify a name, then Doxygen will default to "My Project".
-    assert state.project_name is not None
+    assert du.state.project_name is not None
 
     # Extract documentation for top-level compound data types.
     # Doxygen writes struct and union docs to their own XML files.
     # These are processed first before processing the header XML.
-    for compound in state.compounds.values():
-        if isinstance(compound, CompositeType):
-            if compound.element is not None:
-                compound.brief = process_brief(compound.element.find("briefdescription"))
-                compound.description = process_as_roff(Context(), compound.element.find("detaileddescription"))
-                for sectiondef in compound.element.findall("sectiondef"):
-                    for memberdef in sectiondef.findall("memberdef"):
-                        field = Field()
-                        field.type = process_text(memberdef.find("type"))
-                        field.name = process_text(memberdef.find("name"))
-                        field.argstring = process_text(memberdef.find("argsstring"))
-                        field.brief = process_brief(memberdef.find("briefdescription"))
-                        field.description = process_as_roff(Context(), memberdef.find("detaileddescription"))
-                        compound.fields.append(field)
-                compound.element = None # Drop the reference so Python can garbage collect the XML tree.
-
-    # Extract header file documentation next.
     for file in xml_files:
         parse_xml(file)
+
+    # Write documentation pages for compound data types.
+    for compound in du.state.compounds.values():
+        if isinstance(compound, du.Enum):
+            generate_enum(compound)
 
     # Delete the temporary Doxyfile cloned that was from the original.
     if os.path.exists(doxyfile_manos):
@@ -1370,9 +851,9 @@ def exec(doxyfile: str) -> int:
     return 0
 
 def main(doxyfile: str, arguments: Arguments) -> int:
-    # Reset globla state.
-    global state, args
-    state = State()
+    # Reset globla du.state.
+    global args
+    du.state = du.State()
     args = arguments
 
     # For the premable to end with a new line character.
@@ -1492,3 +973,6 @@ def start() -> None:
 
 if __name__ == "__main__": 
     start()
+
+# TODO: Handle groups by extracting the group documentation for the COMPOUNDs referenced in the HEADER and EMIT that documentation as an SS section flattening the subheaders of it.
+#       List that groups FUNCTIONS, ENUMS, STRUCTS, etc... man page referneces in a table!

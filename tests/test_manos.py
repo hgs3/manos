@@ -181,7 +181,7 @@ def test_enums() -> None:
     assert_snapshot("enums")
 
 def test_variables() -> None:
-    assert_snapshot("variables")    
+    assert_snapshot("variables")
 
 def test_typedefs() -> None:
     assert_snapshot("typedefs")
@@ -191,6 +191,9 @@ def test_preprocessor() -> None:
 
 def test_preprocessor_with_param_docs() -> None:
     assert_snapshot("preprocessor", "snapshot-with-param-docs", macro_parameters=True)
+
+def test_subgroups() -> None:
+    assert_snapshot("subgroups")
 
 def test_unsupported_commands() -> None:
     assert_snapshot("unsupported-commands")
@@ -247,7 +250,7 @@ def test_fullpath() -> None:
 def test_no_xml(capsys: pytest.CaptureFixture[str]) -> None:
     os.chdir(os.path.join(WORKING_DIR, "empty"))
     assert process(os.path.join(WORKING_DIR, "empty", "Doxyfile"), exclusion_pattern=".*xml") == 1
-    assert capsys.readouterr().err == "error: no XML files match the pattern\n"
+    assert "error: no XML files match the pattern\n" in capsys.readouterr().err
 
 def test_no_doxygen_installed(mocker: pytest_mock.MockFixture, capsys: pytest.CaptureFixture[str]) -> None:
     mocker.patch("shutil.which").return_value = None
