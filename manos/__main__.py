@@ -41,56 +41,6 @@ def lowerify(text: str) -> str:
 def briefify(brief: str) -> str:
     return lowerify(brief).rstrip('.') # Remove trailing punctuation.
 
-def emit_special_sections(ctx: du.Context, file: TextIOWrapper) -> None:
-    if len(ctx.deprecated) > 0:
-        file.write('.\\" --------------------------------------------------------------------------\n')
-        file.write('.SH DEPRECATION\n')
-        roff = Roff()
-        for bug in ctx.deprecated:
-            roff.append_roff(bug)
-            roff.append_macro(".PP")
-        file.write(str(roff))
-        file.write("\n")
-
-    if len(ctx.bugs) > 0:
-        file.write('.\\" --------------------------------------------------------------------------\n')
-        file.write('.SH BUGS\n')
-        roff = Roff()
-        for bug in ctx.bugs:
-            roff.append_roff(bug)
-            roff.append_macro(".PP")
-        file.write(str(roff))
-        file.write("\n")
-
-    if len(ctx.examples) > 0:
-        file.write('.\\" --------------------------------------------------------------------------\n')
-        file.write('.SH EXAMPLES\n')
-        roff = Roff()
-        for example in ctx.examples:
-            roff.append_roff(example)
-            roff.append_macro(".PP")
-        file.write(str(roff))
-        file.write("\n")
-
-    if len(ctx.authors) > 0:
-        file.write('.\\" --------------------------------------------------------------------------\n')
-        file.write('.SH AUTHORS\n')
-        roff = Roff()
-        for author in ctx.authors:
-            roff.append_roff(author)
-            roff.append_macro(".PP")
-        file.write(str(roff))
-        file.write("\n")
-
-    if len(ctx.referenced_functions) > 0:
-        file.write('.\\" --------------------------------------------------------------------------\n')
-        file.write('.SH SEE ALSO\n')
-        for index,page in enumerate(ctx.referenced_functions):
-            file.write(f'.BR {page} (3)')
-            if index < len(ctx.referenced_functions) - 1:
-                file.write(',')
-            file.write('\n')
-
 # Construct the '.TH' macro.
 def heading() -> str:
     assert du.state.project_name is not None
@@ -142,6 +92,45 @@ def heading() -> str:
     th += "\n"
     return th
 
+def generate_boilerplate(roff: Roff, compound: du.Compound) -> None:
+    if len(compound.deprecated) > 0:
+        roff.append_macro('.SH DEPRECATION')
+        for bug in compound.deprecated:
+            roff.append_roff(bug)
+
+    if len(compound.bugs) > 0:
+        roff.append_macro('.SH BUGS')
+        for bug in compound.bugs:
+            roff.append_roff(bug)
+
+    if len(compound.examples) > 0:
+        roff.append_macro('.SH EXAMPLES')
+        for example in compound.examples:
+            roff.append_roff(example)
+
+    if len(compound.authors) > 0:
+        roff.append_macro('.SH AUTHORS')
+        for author in compound.authors:
+            roff.append_roff(author)
+
+    if len(compound.referenced_compounds) > 0:
+        roff.append_macro('.SH SEE ALSO')
+        for index,referenced_compound in enumerate(compound.referenced_compounds):
+            if index < len(compound.referenced_compounds) - 1:
+                trailing = ','
+            else:
+                trailing = ''
+            roff.append_macro(f'.BR {referenced_compound.name} (3){trailing}')
+
+    file = open(output_path(f"{compound.name.lower()}.3"), "w", encoding="utf-8")
+    if args.preamble is not None:
+        file.write(args.preamble)
+    file.write(heading())
+    file.write(str(roff))
+    if args.epilogue is not None:
+        file.write(args.epilogue)
+    file.close()
+
 def generate_enum(enum: du.Enum) -> None:
     roff = Roff()
     roff.append_macro(".SH NAME")
@@ -152,7 +141,7 @@ def generate_enum(enum: du.Enum) -> None:
         roff.append_text(du.state.project_brief.strip())
     roff.append_macro('.SH SYNOPSIS')
     roff.append_macro('.nf')
-    #file.write(f'.B #include <{header_display_name}>\n')
+    #roff.append_macro(f'.B #include <{header_display_name}>')
     roff.append_macro('.PP')
     roff.append_text(f'enum {enum.name} {{\n')
     for elem in enum.elements:
@@ -162,43 +151,108 @@ def generate_enum(enum: du.Enum) -> None:
     roff.append_macro('.SH DESCRIPTION')
     roff.append_roff(enum.description)
 
-    # Write the file.
-    file = open(output_path(f"{enum.name}.3"), "w", encoding="utf-8")
-    if args.preamble is not None:
-        file.write(args.preamble)
-    file.write(heading())
-    file.write(str(roff))
-    if args.epilogue is not None:
-        file.write(args.epilogue)
-    file.close()
+    roff.append_macro('.SH CONSTANTS')
+    for elem in enum.elements:
+        roff.append_macro(f'.TP')
+        roff.append_macro(f'.BR {elem.name} (3)')
+        roff.append_roff(elem.description)
 
-def parse_function_signature(element: lxml.etree._Element) -> str:
-    type = du.process_text(element.find("type"))
-    name = du.process_text(element.find("name"))
-    signature = f'.BI "{type}'
+    # Write the file.
+    generate_boilerplate(roff, enum)
+
+def generate_function(func: du.Function) -> None:
+    roff = Roff()
+    roff.append_macro(".SH NAME")
+    roff.append_text(f'{func.name} \\- {briefify(func.brief)}')
+
+    if du.state.project_brief is not None:
+        roff.append_macro('.SH LIBRARY')
+        roff.append_text(du.state.project_brief.strip())
+
+    roff.append_macro('.SH SYNOPSIS')
+    roff.append_macro('.nf')
+    #roff.append_macro(f'.B #include <{header_display_name}>')
+    roff.append_macro('.PP')
+    signature = f'.BI "{func.return_type}'
     # If the return type ends with an astrisk, then that means it's a pointer type
     # and there should be no whitespace between it and the function name.
-    if not type.endswith("*"):
+    if not func.return_type.endswith("*"):
         signature += " "
-    signature += f'{name}('
-    params = element.findall("param")
-    for index, param in enumerate(params):
-        param_type = du.process_text(param.find("type"))
-        declname = param.find("declname")
-        signature += param_type
-        if declname is not None:
+    signature += f'{func.name}('
+    for index, param in enumerate(func.parameters):
+        signature += param.type
+        if param.name is not None:
             # If the parameter type ends with an astrisk, that means it's pointer type
             # and there should be no whitespace between it and the parameter name.
-            if not param_type.endswith("*"):
+            if not param.type.endswith("*"):
                 signature += " "
             # Emit the name of the paramter.
-            param_name = du.process_text(declname)
-            signature += f'" {param_name} "'
+            signature += f'" {param.name} "'
         # Add a comma between each parameter.
-        if index < len(params) - 1:
+        if index < len(func.parameters) - 1:
             signature += ', '
     signature += ');"'
-    return signature
+    roff.append_macro(signature)
+    roff.append_macro('.fi')
+
+    roff.append_macro('.SH DESCRIPTION')
+    roff.append_roff(func.description)
+
+    roff.append_macro('.SH RETURN VALUE')
+
+    # Write the file.
+    generate_boilerplate(roff, func)
+
+def generate_header(header: du.Header) -> None:
+    roff = Roff()
+    roff.append_macro(".SH NAME")
+    roff.append_text(f'{header.name} \\- {briefify(header.brief)}')
+
+    if du.state.project_brief is not None:
+        roff.append_macro('.SH LIBRARY')
+        roff.append_text(du.state.project_brief.strip())
+    roff.append_macro('.SH SYNOPSIS')
+    roff.append_macro('.nf')
+    roff.append_macro(f'.B #include <{header.name}>')
+    roff.append_macro('.fi')
+    roff.append_macro('.SH DESCRIPTION')
+    roff.append_roff(header.description)
+
+    top: List[du.Compound] = []
+    grouped: Dict[str, List[du.Compound]] = {}
+
+    # Gather all compounds that belong to groups.
+    for compound in header.compounds:
+        group_id = compound.group_id
+        if group_id is None:
+            top.append(compound)
+        else:
+            if group_id not in grouped:
+                grouped[group_id] = []
+            grouped[group_id].append(compound)
+
+    # Emit all top-level compounds.
+    for compound in top:
+        roff.append_macro(f'.TP')
+        roff.append_macro(f'.BR {compound.name} (3)')
+        roff.append_text(compound.brief)
+
+    # Emit group documentation and their compounds.
+    for group_id, compounds in grouped.items():
+        group = du.state.compounds[group_id]
+        roff.append_macro(f'.SS {group.name}')
+        if group.description.is_empty():
+            roff.append_text(group.brief)
+        else:
+            roff.append_roff(group.description)
+        for compound in compounds:
+            roff.append_macro(f'.TP')
+            roff.append_macro(f'.BR {compound.name} (3)')
+            roff.append_text(compound.brief)
+
+    # Write the file.
+    generate_boilerplate(roff, header)
+
 
 def parse_function(element: lxml.etree._Element, header_display_name: str) -> None:
     id = element.get("id")
@@ -208,7 +262,7 @@ def parse_function(element: lxml.etree._Element, header_display_name: str) -> No
     if id in du.state.compounds:
         compound = du.state.compounds[id]
         if isinstance(compound, du.Function):
-            ctx.active_function = compound
+            ctx.active_compound = compound
 
     name = du.process_text(element.find("name"))
     brief = briefify(du.process_brief(element.find("briefdescription")))
@@ -578,13 +632,17 @@ def preparse_xml(filename: str) -> None:
     language = element.get("language")
     if language == "C++":
         # Doxygen writes docs for structs and unions in their own individual .xml files.
-        if kind == "struct":
-            composite = du.CompositeType(id, True)
+        if kind in ["struct", "union"]:
+            composite = du.CompositeType(id, kind == "struct")
             composite.name = du.process_text(element.find("compoundname"))
-            du.state.compounds[id] = composite
-        elif kind == "union":
-            composite = du.CompositeType(id, False)
-            composite.name = du.process_text(element.find("compoundname"))
+            for sectiondef in element.findall("sectiondef"):
+                for memberdef in sectiondef.findall("memberdef"):
+                    field = du.Field(composite)
+                    field.type = du.process_text(memberdef.find("type"))
+                    field.name = du.process_text(memberdef.find("name"))
+                    field.argstring = du.process_text(memberdef.find("argsstring"))
+                    field.brief = du.process_brief(memberdef.find("briefdescription"))
+                    composite.fields.append(field)
             du.state.compounds[id] = composite
         elif kind == "file":
             # Create a compound for the file.
@@ -593,8 +651,9 @@ def preparse_xml(filename: str) -> None:
             name_xml = element.find("compoundname")
             assert name_xml is not None
             assert name_xml.text is not None
-            file = du.File(name_xml.text)
-            du.state.compounds[id] = file
+            header = du.Header(id)
+            header.name = name_xml.text
+            du.state.compounds[id] = header
             # Parse all other definitions.
             for sectiondef in element.findall("sectiondef"):
                 for memberdef in sectiondef.findall("memberdef"):
@@ -611,38 +670,51 @@ def preparse_xml(filename: str) -> None:
                     if kind == "function":
                         function = du.Function(id, group_id)
                         function.name = du.process_text(memberdef.find("name"))
+                        function.brief = du.process_brief(memberdef.find("briefdescription"))
+                        function.return_type = du.process_text(memberdef.find("type"))
+                        for param_xml in memberdef.findall("param"):
+                            param_type = du.process_text(param_xml.find("type"))
+                            param_name_xml = param_xml.find("declname")
+                            if param_name_xml is not None:
+                                function.parameters.append(du.Parameter(param_type, param_name_xml.text))
+                            else:
+                                function.parameters.append(du.Parameter(param_type))
                         du.state.compounds[id] = function
                     elif kind == "typedef":
                         typedef = du.Typedef(id, group_id)
                         typedef.name = du.process_text(memberdef.find("name"))
+                        typedef.brief = du.process_brief(memberdef.find("briefdescription"))
                         du.state.compounds[id] = typedef
                     elif kind == "enum":
                         enum = du.Enum(id, group_id)
                         enum.name = du.process_text(memberdef.find("name"))
+                        enum.brief = du.process_brief(memberdef.find("briefdescription"))
                         du.state.compounds[id] = enum
                         # Store all enumeration members in the same dictionary as the enumeration itself.
                         # This is done because when Doxygen references them it does so using a global identifier.
                         for enumval in memberdef.findall("enumvalue"):
                             enumval_id = enumval.get("id")
                             assert enumval_id is not None
-                            elem = du.EnumElement(enumval_id)
+                            elem = du.EnumElement(enumval_id, enum)
                             elem.name = du.process_text(enumval.find("name"))
+                            elem.brief = du.process_brief(enumval.find("briefdescription"))
                             enum.elements.append(elem)
                             du.state.compounds[enumval_id] = elem
                     elif kind == "define":
                         define = du.Define(id, group_id)
                         define.name = du.process_text(memberdef.find("name"))
+                        define.brief = du.process_brief(memberdef.find("briefdescription"))
                         du.state.compounds[id] = define
-                    # Associate the compound with the file.
+                    # Associate the compound with the header file.
                     if id in du.state.compounds:
-                        file.compounds.append(du.state.compounds[id])
+                        header.compounds.append(du.state.compounds[id])
     # Track all groups and the functions that belong to them.
     # This is used to reference all other functions under each functions SEE ALSO man page section.
     elif kind == "group":
         id = element.get("id")
         assert id is not None
         group = du.Group(id)
-        group.name = du.process_text(element.find("name"))
+        group.name = du.process_text(element.find("title"))
         du.state.compounds[id] = group
     # Extract examples to latter include in the associated header file.
     # The examples associated with said header file will be added
@@ -672,59 +744,41 @@ def parse_xml(filename: str) -> None:
         if kind in ["struct", "union"]:
             compound = du.state.compounds[id]
             assert isinstance(compound, du.CompositeType)
-            compound.brief = du.process_brief(element.find("briefdescription"))
-            compound.description = du.process_as_roff(du.Context(), element.find("detaileddescription"))
+            compound.description = du.process_description(element.find("detaileddescription"), compound)
             for sectiondef in element.findall("sectiondef"):
-                for memberdef in sectiondef.findall("memberdef"):
-                    field = du.Field()
-                    field.type = du.process_text(memberdef.find("type"))
-                    field.name = du.process_text(memberdef.find("name"))
-                    field.argstring = du.process_text(memberdef.find("argsstring"))
-                    field.brief = du.process_brief(memberdef.find("briefdescription"))
-                    field.description = du.process_as_roff(du.Context(), memberdef.find("detaileddescription"))
+                for index,memberdef in enumerate(sectiondef.findall("memberdef")):
+                    field = compound.fields[index]
+                    field.description = du.process_description(memberdef.find("detaileddescription"), field)
                     compound.fields.append(field)
         elif kind == "file":
             # Create a compound for the file.
-            id = element.get("id")
-            assert id is not None
-            name_xml = element.find("compoundname")
-            assert name_xml is not None
-            assert name_xml.text is not None
-            file = du.File(name_xml.text)
-            du.state.compounds[id] = file
-            # Parse all other definitions.
-            for sectiondef in element.findall("sectiondef"):
-                for memberdef in sectiondef.findall("memberdef"):
-                    if id := memberdef.get("id"):
-                        compound = du.state.compounds[id]
-                        if isinstance(compound, du.Function) or isinstance(compound, du.Typedef) or isinstance(compound, du.Define):
+            if id := element.get("id"):
+                header = du.state.compounds[id]
+                header.brief = du.process_brief(element.find("briefdescription"))
+                header.description = du.process_description(element.find("detaileddescription"), header)
+                assert isinstance(header, du.Header)
+                # Parse all other definitions.
+                for sectiondef in element.findall("sectiondef"):
+                    for memberdef in sectiondef.findall("memberdef"):
+                        if id := memberdef.get("id"):
                             compound = du.state.compounds[id]
-                            compound.brief = du.process_brief(memberdef.find("briefdescription"))
-                            compound.description = du.process_description(memberdef.find("detaileddescription"))
-                        elif isinstance(compound, du.Enum):
-                            enum = du.state.compounds[id]
-                            enum.brief = du.process_brief(memberdef.find("briefdescription"))
-                            enum.description = du.process_description(memberdef.find("detaileddescription"))
-                            # Store all enumeration members in the same dictionary as the enumeration itself.
-                            # This is done because when Doxygen references them it does so using a global identifier.
-                            for enumval in memberdef.findall("enumvalue"):
-                                if enumval_id := enumval.get("id"):
-                                    elem = du.state.compounds[enumval_id]
-                                    elem.brief = du.process_brief(enumval.find("briefdescription"))
-                                    elem.description = du.process_description(enumval.find("detaileddescription"))
-                        # # Parse function arguments.
-                        # if isinstance(compound, du.Function):
-                        #     # Note that the following XPath recursivly searches the XML.
-                        #     for param in memberdef.findall('.//parameterlist[@kind="param"]/*/*/parametername'):
-                        #         if param.text is not None:
-                        #             function.params.add(param.text)
+                            if isinstance(compound, du.Function) or isinstance(compound, du.Typedef) or isinstance(compound, du.Define):
+                                compound = du.state.compounds[id]
+                                compound.description = du.process_description(memberdef.find("detaileddescription"), compound)
+                            elif isinstance(compound, du.Enum):
+                                compound.description = du.process_description(memberdef.find("detaileddescription"), compound)
+                                # Store all enumeration members in the same dictionary as the enumeration itself.
+                                # This is done because when Doxygen references them it does so using a global identifier.
+                                for index,enumval in enumerate(memberdef.findall("enumvalue")):
+                                    elem = compound.elements[index]
+                                    elem.description = du.process_description(enumval.find("detaileddescription"), elem)
     # Track all groups and the functions that belong to them.
     # This is used to reference all other functions under each functions SEE ALSO man page section.
     elif kind == "group":
         if id := element.get("id"):
             group = du.state.compounds[id]
-            group.brief = du.process_brief(element.find("brief"))
-            group.description = du.process_description(element.find("description"))
+            group.brief = du.process_brief(element.find("briefdescription"))
+            group.description = du.process_description(element.find("detaileddescription"), group)
 
 # def parse_xml(file: str) -> None:
 #     tree = lxml.etree.parse(file)
@@ -844,6 +898,10 @@ def exec(doxyfile: str) -> int:
     for compound in du.state.compounds.values():
         if isinstance(compound, du.Enum):
             generate_enum(compound)
+        elif isinstance(compound, du.Header):
+            generate_header(compound)
+        elif isinstance(compound, du.Function):
+            generate_function(compound)
 
     # Delete the temporary Doxyfile cloned that was from the original.
     if os.path.exists(doxyfile_manos):
@@ -974,5 +1032,6 @@ def start() -> None:
 if __name__ == "__main__": 
     start()
 
-# TODO: Handle groups by extracting the group documentation for the COMPOUNDs referenced in the HEADER and EMIT that documentation as an SS section flattening the subheaders of it.
+# TODO: Handle groups by extracting the group documentation for the COMPOUNDs referenced in the HEADER and EMIT the group documentation as an SS section flattening the subheaders of it.
 #       List that groups FUNCTIONS, ENUMS, STRUCTS, etc... man page referneces in a table!
+#       Any compound NOT belonging to a group can be placed in a top-level table BEFORE any group.

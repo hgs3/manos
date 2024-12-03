@@ -13,7 +13,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from typing import List, Set, Dict, Union, Optional, TypeAlias
+from typing import List, Dict, Optional, Any
 
 import lxml
 import lxml.etree
@@ -30,12 +30,26 @@ class Compound:
         self.name = "unnamed"
         self.brief = ""
         self.description = Roff()
+        # The following are extracted when parsing the detailed description of the compound.
+        self.referenced_compounds: OrderedSet[Compound] = OrderedSet()
+        self.authors: List[Roff] = []
+        self.bugs: List[Roff] = []
+        self.examples: List[Roff] = []
+        self.deprecated: List[Roff] = []
+        self.function_params: Optional[Roff] = None
 
-class Field(Compound):
-    def __init__(self, id: str) -> None:
-        super().__init__(id)
-        self.type = "void"
-        self.argstring = ""
+    def __hash__(self) -> int:
+        return hash(self.id)
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, Compound):
+            return self.id == other.id
+        return False
+
+class Parameter:
+    def __init__(self, type: str, name: Optional[str] = None) -> None:
+        self.type = type
+        self.name = name
 
 class CompositeType(Compound):
     def __init__(self, id: str, is_struct: bool) -> None:
@@ -47,10 +61,19 @@ class CompositeType(Compound):
     def is_union(self) -> bool:
         return not self.is_struct
 
+class Field(Compound):
+    def __init__(self, id: str, composite: CompositeType) -> None:
+        super().__init__(id)
+        self.type = "void"
+        self.argstring = ""
+        self.parent = composite
+
 class Function(Compound):
     def __init__(self, id: str, group_id: Optional[str] = None) -> None:
         super().__init__(id, group_id)
-        self.params: Set[str] = set()
+        self.return_type = "void"
+        self.parameters: List[Parameter] = []
+        self.description_return: Optional[Roff] = None
 
 class Enum(Compound):
     def __init__(self, id: str, group_id: Optional[str] = None) -> None:
@@ -58,8 +81,9 @@ class Enum(Compound):
         self.elements: List[EnumElement] = []
 
 class EnumElement(Compound):
-    def __init__(self, id: str) -> None:
+    def __init__(self, id: str, enum: Enum) -> None:
         super().__init__(id)
+        self.parent = enum
 
 class Typedef(Compound):
     def __init__(self, id: str, group_id: Optional[str] = None) -> None:
@@ -68,8 +92,9 @@ class Typedef(Compound):
 class Define(Compound):
     def __init__(self, id: str, group_id: Optional[str] = None) -> None:
         super().__init__(id, group_id)
+        self.description_return: Optional[Roff] = None
 
-class File(Compound):
+class Header(Compound):
     def __init__(self, id: str) -> None:
         super().__init__(id)
         self.compounds: List[Compound] = []
@@ -83,20 +108,9 @@ class Example:
         self.description = description
 
 class Context:
-    def __init__(self, ignore_refs: bool = False) -> None:
+    def __init__(self, ignore_refs: bool, active_compound: Optional[Compound]) -> None:
         self.ignore_refs = ignore_refs
-        self.referenced_functions: OrderedSet[str] = OrderedSet()
-        self.authors: List[Roff] = []
-        self.bugs: List[Roff] = []
-        self.examples: List[Roff] = []
-        self.deprecated: List[Roff] = []
-        self.return_type: Optional[Roff] = None
-        self.function_params: Optional[Roff] = None
-        self.active_function: Optional[Function] = None
-
-    def clear_signature(self) -> None:
-        self.return_type = None
-        self.function_params = None
+        self.active_compound = active_compound
 
 def process_children(ctx: Context, elem: lxml.etree._Element) -> Roff:
     # Compute the text for this node.
@@ -148,7 +162,14 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
             # Doxygen represents function parameters identically to inline code snippets in its generated XML.
             # To deduce which is which, check if the XML for a function is being processed and if so, then
             # check if what is being processed matches a function parameter.
-            if ctx.active_function is not None and raw_text in ctx.active_function.params:
+            is_param = False
+            if ctx.active_compound is not None and isinstance(ctx.active_compound, Function):
+                 for param in ctx.active_compound.parameters:
+                    if raw_text == param.name:
+                        is_param = True
+                        break
+            # Emit the inline code for the parameter differently than other inline code snippets.
+            if is_param:
                 roff = Roff()
                 roff.append_text(f'\\f[I]{raw_text}\\f[R]')
                 return roff
@@ -186,7 +207,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                 content.append_macro(".TP")
                 content.append_text(", ".join(params) + "\n")
                 content.append_text(str(process_as_roff(ctx, parameteritem.find("parameterdescription"))))
-            ctx.function_params = content
+            ctx.active_compound.function_params = content
         elif kind == "retval":
             content = Roff()
             for parameteritem in elem.findall("parameteritem"):
@@ -197,7 +218,8 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                 content.append_macro(".TP")
                 content.append_text(", ".join(retvals) + "\n")
                 content.append_text(str(process_as_roff(ctx, parameteritem.find("parameterdescription"))))
-            ctx.return_type = content
+            if isinstance(ctx.active_compound, Function) or isinstance(ctx.active_compound, Define):
+                ctx.active_compound.description_return = content
         return Roff()
 
     # Anchor tags are meant to be linked to but have no usage in man pages.
@@ -214,33 +236,15 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
             refid_xml = elem.get("refid")
             if refid_xml is not None and refid_xml in state.compounds:
                 compound = state.compounds[refid_xml]
-                if isinstance(compound, Function):
+                if isinstance(compound, Function) or isinstance(compound, CompositeType) or isinstance(compound, Enum) or isinstance(compound, Typedef) or isinstance(compound, Define):
                     roff = Roff()
                     roff.append_text(f"\\f[B]{compound.name}\\f[R](3)")
-                    ctx.referenced_functions.add(compound.name)
+                    ctx.active_compound.referenced_compounds.add(compound)
                     return roff
-                elif isinstance(compound, CompositeType):
-                    roff = Roff()
-                    if compound.is_struct:
-                        roff.append_text(f"\\f[I]struct {compound.name}\\f[R]")
-                    else:
-                        roff.append_text(f"\\f[I]union {compound.name}\\f[R]")
-                    return roff
-                elif isinstance(compound, Enum):
-                    roff = Roff()
-                    roff.append_text(f"\\f[I]enum {compound.name}\\f[R]")
-                    return roff
-                elif isinstance(compound, EnumElement):
+                elif isinstance(compound, EnumElement) or isinstance(compound, Field):
                     roff = Roff()
                     roff.append_text(f"\\f[I]{compound.name}\\f[R]")
-                    return roff
-                elif isinstance(compound, Typedef):
-                    roff = Roff()
-                    roff.append_text(f"\\f[I]{compound.name}\\f[R]")
-                    return roff
-                elif isinstance(compound, Define):
-                    roff = Roff()
-                    roff.append_text(f"\\f[I]{compound.name}\\f[R]")
+                    ctx.active_compound.referenced_compounds.add(compound.parent.name)
                     return roff
         return content
 
@@ -338,7 +342,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
             roff.append_roff(process_children(ctx, elem))
             return roff
         elif kind == "return":
-            ctx.return_type = process_children(ctx, elem)
+            ctx.active_compound.return_type = process_children(ctx, elem)
             return Roff()
         elif kind == "see":
             # Visit the child elements but discard the Roff result. The purpose
@@ -351,7 +355,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
             print("warning: excluding admonition from generated documentation", file=args.stdout)
             return Roff()
         elif kind in ["author", "authors"]:
-            ctx.authors.append(process_children(ctx, elem))
+            ctx.active_compound.authors.append(process_children(ctx, elem))
             return Roff()
         else:
             raise Exception("unknown simplesect kind", kind)
@@ -363,11 +367,11 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
             if title_xml.text == "Bug":
                 description_xml = elem.find("xrefdescription")
                 assert description_xml is not None
-                ctx.bugs.append(process_children(ctx, description_xml))
+                ctx.active_compound.bugs.append(process_children(ctx, description_xml))
             elif title_xml.text == "Deprecated":
                 description_xml = elem.find("xrefdescription")
                 assert description_xml is not None
-                ctx.deprecated.append(process_children(ctx, description_xml))
+                ctx.active_compound.deprecated.append(process_children(ctx, description_xml))
             else:
                 print("warning: unsupported xrefsect: {0}".format(title_xml.text), file=args.stdout)
         return Roff()
@@ -415,12 +419,12 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
 def process_brief(elem: Optional[lxml.etree._Element]) -> str:
     # Brief descriptions should consist of a single line so remove any
     # commands, like .PP, because they will force text onto another line.
-    roff = process_as_roff(Context(True), elem)
+    roff = process_as_roff(Context(True, None), elem)
     roff.entries = list(filter(lambda x: isinstance(x, Text), roff.entries))
     return str(roff).strip()
 
-def process_description(elem: Optional[lxml.etree._Element]) -> Roff:
-    return process_as_roff(Context(False), elem)
+def process_description(elem: Optional[lxml.etree._Element], compound: Compound) -> Roff:
+    return process_as_roff(Context(False, compound), elem)
 
 def process_text(elem: Optional[lxml.etree._Element]) -> str:
     text = ""
