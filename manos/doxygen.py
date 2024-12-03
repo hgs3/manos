@@ -97,7 +97,7 @@ class Define(Compound):
 class Header(Compound):
     def __init__(self, id: str) -> None:
         super().__init__(id)
-        self.compounds: List[Compound] = []
+        self.compounds: OrderedSet[Compound] = OrderedSet()
 
 class Group(Compound):
     def __init__(self, id: str) -> None:
@@ -244,7 +244,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                 elif isinstance(compound, EnumElement) or isinstance(compound, Field):
                     roff = Roff()
                     roff.append_text(f"\\f[I]{compound.name}\\f[R]")
-                    ctx.active_compound.referenced_compounds.add(compound.parent.name)
+                    ctx.active_compound.referenced_compounds.add(compound.parent)
                     return roff
         return content
 
@@ -268,7 +268,8 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
         title = title_xml.text or ""
         title = title.capitalize() # Man page sections should be lowercase with the first letter uppercased.
         roff = Roff()
-        roff.append_macro(f".SS {title}")
+        if args.subsection_titles:
+            roff.append_macro(f".SS {title}")
         roff.append_roff(process_children(ctx, elem))
         return roff
 
@@ -342,7 +343,8 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
             roff.append_roff(process_children(ctx, elem))
             return roff
         elif kind == "return":
-            ctx.active_compound.return_type = process_children(ctx, elem)
+            if isinstance(ctx.active_compound, Function):
+                ctx.active_compound.description_return = process_children(ctx, elem)
             return Roff()
         elif kind == "see":
             # Visit the child elements but discard the Roff result. The purpose

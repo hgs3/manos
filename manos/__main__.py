@@ -131,7 +131,41 @@ def generate_boilerplate(roff: Roff, compound: du.Compound) -> None:
         file.write(args.epilogue)
     file.close()
 
-def generate_enum(enum: du.Enum) -> None:
+def generate_composite(header: du.Header, composite: du.CompositeType) -> None:
+    roff = Roff()
+    roff.append_macro(".SH NAME")
+    roff.append_text(f'{composite.name} \\- {briefify(composite.brief)}')
+
+    if du.state.project_brief is not None:
+        roff.append_macro('.SH LIBRARY')
+        roff.append_text(du.state.project_brief.strip())
+    roff.append_macro('.SH SYNOPSIS')
+    roff.append_macro('.nf')
+    roff.append_macro(f'.B #include <{header.name}>')
+    roff.append_macro('.PP')
+    roff.append_text(f'{"struct" if composite.is_struct else "union"} {composite.name} {{\n')
+    for field in composite.fields:
+        field_string = field.type
+        if not field_string.endswith("*"):
+            field_string += " "
+        field_string += f"{field.name}{field.argstring}"
+        roff.append_text(f'    {field_string};\n')
+    roff.append_text('};')
+    roff.append_macro('.fi')
+    roff.append_macro('.SH DESCRIPTION')
+    roff.append_roff(composite.description)
+
+    if args.composite_fields is True:
+        roff.append_macro('.SH FIELDS')
+        for field in composite.fields:
+            roff.append_macro(f'.TP')
+            roff.append_macro(f'.BR {field.name} (3)')
+            roff.append_roff(field.description)
+
+    # Write the file.
+    generate_boilerplate(roff, composite)
+
+def generate_enum(header: du.Header, enum: du.Enum) -> None:
     roff = Roff()
     roff.append_macro(".SH NAME")
     roff.append_text(f'{enum.name} \\- {briefify(enum.brief)}')
@@ -141,13 +175,14 @@ def generate_enum(enum: du.Enum) -> None:
         roff.append_text(du.state.project_brief.strip())
     roff.append_macro('.SH SYNOPSIS')
     roff.append_macro('.nf')
-    #roff.append_macro(f'.B #include <{header_display_name}>')
+    roff.append_macro(f'.B #include <{header.name}>')
     roff.append_macro('.PP')
     roff.append_text(f'enum {enum.name} {{\n')
     for elem in enum.elements:
         roff.append_text(f'    {elem.name},\n')
     roff.append_text('};')
     roff.append_macro('.fi')
+
     roff.append_macro('.SH DESCRIPTION')
     roff.append_roff(enum.description)
 
@@ -155,12 +190,65 @@ def generate_enum(enum: du.Enum) -> None:
     for elem in enum.elements:
         roff.append_macro(f'.TP')
         roff.append_macro(f'.BR {elem.name} (3)')
-        roff.append_roff(elem.description)
+        if elem.description.is_empty():
+            roff.append_text(elem.brief)
+        else:
+            roff.append_roff(elem.description)
 
     # Write the file.
     generate_boilerplate(roff, enum)
 
-def generate_function(func: du.Function) -> None:
+def generate_define(header: du.Header, define: du.Define) -> None:
+    pass
+    # roff = Roff()
+    # roff.append_macro(".SH NAME")
+    # roff.append_text(f'{define.name} \\- {briefify(define.brief)}')
+
+    # if du.state.project_brief is not None:
+    #     roff.append_macro('.SH LIBRARY')
+    #     roff.append_text(du.state.project_brief.strip())
+
+    # roff.append_macro('.SH SYNOPSIS')
+    # roff.append_macro('.nf')
+    # #roff.append_macro(f'.B #include <{header_display_name}>')
+    # roff.append_macro('.PP')
+    # signature = f'.BI "{define.return_type}'
+    # # If the return type ends with an astrisk, then that means it's a pointer type
+    # # and there should be no whitespace between it and the function name.
+    # if not define.return_type.endswith("*"):
+    #     signature += " "
+    # signature += f'{define.name}('
+    # for index, param in enumerate(define.parameters):
+    #     signature += param.type
+    #     if param.name is not None:
+    #         # If the parameter type ends with an astrisk, that means it's pointer type
+    #         # and there should be no whitespace between it and the parameter name.
+    #         if not param.type.endswith("*"):
+    #             signature += " "
+    #         # Emit the name of the paramter.
+    #         signature += f'" {param.name} "'
+    #     # Add a comma between each parameter.
+    #     if index < len(define.parameters) - 1:
+    #         signature += ', '
+    # signature += ');"'
+    # roff.append_macro(signature)
+    # roff.append_macro('.fi')
+
+    # roff.append_macro('.SH DESCRIPTION')
+    # roff.append_roff(define.description)
+
+    # if define.function_params is not None and args.macro_parameters is True:
+    #     roff.append_macro('.SH PARAMETERS')
+    #     roff.append_roff(define.function_params)
+
+    # if define.description_return is not None:
+    #     roff.append_macro('.SH RETURN VALUE')
+    #     roff.append_roff(define.description_return)
+
+    # # Write the file.
+    # generate_boilerplate(roff, define)
+
+def generate_function(header: du.Header, func: du.Function) -> None:
     roff = Roff()
     roff.append_macro(".SH NAME")
     roff.append_text(f'{func.name} \\- {briefify(func.brief)}')
@@ -171,7 +259,7 @@ def generate_function(func: du.Function) -> None:
 
     roff.append_macro('.SH SYNOPSIS')
     roff.append_macro('.nf')
-    #roff.append_macro(f'.B #include <{header_display_name}>')
+    roff.append_macro(f'.B #include <{header.name}>')
     roff.append_macro('.PP')
     signature = f'.BI "{func.return_type}'
     # If the return type ends with an astrisk, then that means it's a pointer type
@@ -198,12 +286,29 @@ def generate_function(func: du.Function) -> None:
     roff.append_macro('.SH DESCRIPTION')
     roff.append_roff(func.description)
 
-    roff.append_macro('.SH RETURN VALUE')
+    if func.function_params is not None and args.function_parameters is True:
+        roff.append_macro('.SH PARAMETERS')
+        roff.append_roff(func.function_params)
+
+    if func.description_return is not None:
+        roff.append_macro('.SH RETURN VALUE')
+        roff.append_roff(func.description_return)
 
     # Write the file.
     generate_boilerplate(roff, func)
 
 def generate_header(header: du.Header) -> None:
+    # Generate pages for all compounds referenced by this header.
+    for compound in header.compounds:
+        if isinstance(compound, du.Function):
+            generate_function(header, compound)
+        elif isinstance(compound, du.CompositeType):
+            generate_composite(header, compound)
+        elif isinstance(compound, du.Enum):
+            generate_enum(header, compound)
+        elif isinstance(compound, du.Define):
+            generate_define(header, compound)
+
     roff = Roff()
     roff.append_macro(".SH NAME")
     roff.append_text(f'{header.name} \\- {briefify(header.brief)}')
@@ -707,7 +812,7 @@ def preparse_xml(filename: str) -> None:
                         du.state.compounds[id] = define
                     # Associate the compound with the header file.
                     if id in du.state.compounds:
-                        header.compounds.append(du.state.compounds[id])
+                        header.compounds.add(du.state.compounds[id])
     # Track all groups and the functions that belong to them.
     # This is used to reference all other functions under each functions SEE ALSO man page section.
     elif kind == "group":
@@ -896,12 +1001,8 @@ def exec(doxyfile: str) -> int:
 
     # Write documentation pages for compound data types.
     for compound in du.state.compounds.values():
-        if isinstance(compound, du.Enum):
-            generate_enum(compound)
-        elif isinstance(compound, du.Header):
+        if isinstance(compound, du.Header):
             generate_header(compound)
-        elif isinstance(compound, du.Function):
-            generate_function(compound)
 
     # Delete the temporary Doxyfile cloned that was from the original.
     if os.path.exists(doxyfile_manos):
@@ -991,6 +1092,7 @@ def parse_args(arguments: Optional[List[str]] = None) -> int:
     group.add_argument("--function-params", action="store_true", dest="function_parameters", help="include function \\param documentation in the functions man page")
     group.add_argument("--macro-params", action="store_true", dest="macro_parameters", help="include macro \\param documentation when documenting macros")
     group.add_argument("--composite-fields", action="store_true", dest="composite_fields", help="include documentation for struct and union fields when documenting them")
+    group.add_argument("--subsection-titles", action="store_true", dest="subsection_titles", help="include subsection titles in detailed descriptions")
 
     group = parser.add_argument_group()
     group.add_argument("--topic", type=str, dest="topic", help="text positioned at the top of the man page; defaults to PROJECT_NAME in the Doxygen config", metavar="TEXT")

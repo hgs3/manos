@@ -28,6 +28,7 @@ class Arguments(argparse.Namespace):
         self.function_parameters = False
         self.macro_parameters = False
         self.composite_fields = False
+        self.subsection_titles = False
         self.topic: Optional[str] = None
         self.section = 3
         self.include_path = "short"
