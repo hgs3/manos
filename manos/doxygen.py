@@ -46,11 +46,6 @@ class Compound:
             return self.id == other.id
         return False
 
-class Parameter:
-    def __init__(self, type: str, name: Optional[str] = None) -> None:
-        self.type = type
-        self.name = name
-
 class CompositeType(Compound):
     def __init__(self, id: str, is_struct: bool) -> None:
         super().__init__(id)
@@ -72,8 +67,14 @@ class Function(Compound):
     def __init__(self, id: str, group_id: Optional[str] = None) -> None:
         super().__init__(id, group_id)
         self.return_type = "void"
-        self.parameters: List[Parameter] = []
+        self.parameters: List[Function.Parameter] = []
         self.description_return: Optional[Roff] = None
+
+    class Parameter:
+        def __init__(self, type: str, name: Optional[str] = None) -> None:
+            self.type = type
+            self.name = name
+            self.description: Optional[str] = None
 
 class Enum(Compound):
     def __init__(self, id: str, group_id: Optional[str] = None) -> None:
@@ -92,7 +93,20 @@ class Typedef(Compound):
 class Define(Compound):
     def __init__(self, id: str, group_id: Optional[str] = None) -> None:
         super().__init__(id, group_id)
+        self.function_like = False
+        self.initializer: Optional[str] = None
+        self.parameters: List[Function.Parameter] = []
         self.description_return: Optional[Roff] = None
+
+    class Parameter:
+        def __init__(self, name: str) -> None:
+            self.name = name
+            self.description: Optional[str] = None
+
+class Variable(Compound):
+    def __init__(self, id: str, group_id: Optional[str] = None) -> None:
+        super().__init__(id, group_id)
+        self.type = "void"
 
 class Header(Compound):
     def __init__(self, id: str) -> None:

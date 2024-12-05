@@ -201,55 +201,77 @@ def generate_enum(header: du.Header, enum: du.Enum) -> None:
     # Write the file.
     generate_boilerplate(roff, enum)
 
+def generate_variable(header: du.Header, variable: du.Variable) -> None:
+    roff = Roff()
+    roff.append_macro(".SH NAME")
+    roff.append_text(f'{variable.name} \\- {briefify(variable.brief)}')
+
+    if du.state.project_brief is not None:
+        roff.append_macro('.SH LIBRARY')
+        roff.append_text(du.state.project_brief.strip())
+
+    roff.append_macro('.SH SYNOPSIS')
+    roff.append_macro('.nf')
+    roff.append_macro(f'.B #include <{header.name}>')
+    roff.append_macro('.PP')
+    decl = f'.BR "{variable.type}'
+    # If the parameter type ends with an astrisk, that means it's pointer type
+    # and there should be no whitespace between it and the parameter name.
+    if not variable.type.endswith("*"):
+        decl += " "
+    decl += f'" {variable.name} ";"'
+    roff.append_macro(decl)
+    roff.append_macro('.fi')
+
+    roff.append_macro('.SH DESCRIPTION')
+    roff.append_roff(variable.description)
+
+    # Write the file.
+    generate_boilerplate(roff, variable)
+
 def generate_define(header: du.Header, define: du.Define) -> None:
-    pass
-    # roff = Roff()
-    # roff.append_macro(".SH NAME")
-    # roff.append_text(f'{define.name} \\- {briefify(define.brief)}')
+    roff = Roff()
+    roff.append_macro(".SH NAME")
+    roff.append_text(f'{define.name} \\- {briefify(define.brief)}')
 
-    # if du.state.project_brief is not None:
-    #     roff.append_macro('.SH LIBRARY')
-    #     roff.append_text(du.state.project_brief.strip())
+    if du.state.project_brief is not None:
+        roff.append_macro('.SH LIBRARY')
+        roff.append_text(du.state.project_brief.strip())
 
-    # roff.append_macro('.SH SYNOPSIS')
-    # roff.append_macro('.nf')
-    # #roff.append_macro(f'.B #include <{header_display_name}>')
-    # roff.append_macro('.PP')
-    # signature = f'.BI "{define.return_type}'
-    # # If the return type ends with an astrisk, then that means it's a pointer type
-    # # and there should be no whitespace between it and the function name.
-    # if not define.return_type.endswith("*"):
-    #     signature += " "
-    # signature += f'{define.name}('
-    # for index, param in enumerate(define.parameters):
-    #     signature += param.type
-    #     if param.name is not None:
-    #         # If the parameter type ends with an astrisk, that means it's pointer type
-    #         # and there should be no whitespace between it and the parameter name.
-    #         if not param.type.endswith("*"):
-    #             signature += " "
-    #         # Emit the name of the paramter.
-    #         signature += f'" {param.name} "'
-    #     # Add a comma between each parameter.
-    #     if index < len(define.parameters) - 1:
-    #         signature += ', '
-    # signature += ');"'
-    # roff.append_macro(signature)
-    # roff.append_macro('.fi')
+    roff.append_macro('.SH SYNOPSIS')
+    roff.append_macro('.nf')
+    roff.append_macro(f'.B #include <{header.name}>')
+    roff.append_macro('.PP')
+    signature = f'.BI "#define '
+    if define.function_like:
+        signature += f'{define.name}('
+        for index, param in enumerate(define.parameters):
+            # Emit the name of the paramter.
+            signature += f'" {param.name} "'
+            # Add a comma between each parameter.
+            if index < len(define.parameters) - 1:
+                signature += ', '
+        signature += ');"'
+    else:
+        signature += f'{define.name}"'
+        if define.initializer is not None:
+            signature += f' {define.initializer}'
+    roff.append_macro(signature)
+    roff.append_macro('.fi')
 
-    # roff.append_macro('.SH DESCRIPTION')
-    # roff.append_roff(define.description)
+    roff.append_macro('.SH DESCRIPTION')
+    roff.append_roff(define.description)
 
-    # if define.function_params is not None and args.macro_parameters is True:
-    #     roff.append_macro('.SH PARAMETERS')
-    #     roff.append_roff(define.function_params)
+    if define.function_params is not None and args.macro_parameters is True:
+        roff.append_macro('.SH PARAMETERS')
+        roff.append_roff(define.function_params)
 
-    # if define.description_return is not None:
-    #     roff.append_macro('.SH RETURN VALUE')
-    #     roff.append_roff(define.description_return)
+    if define.description_return is not None:
+        roff.append_macro('.SH RETURN VALUE')
+        roff.append_roff(define.description_return)
 
-    # # Write the file.
-    # generate_boilerplate(roff, define)
+    # Write the file.
+    generate_boilerplate(roff, define)
 
 def generate_function(header: du.Header, func: du.Function) -> None:
     roff = Roff()
@@ -300,6 +322,67 @@ def generate_function(header: du.Header, func: du.Function) -> None:
     # Write the file.
     generate_boilerplate(roff, func)
 
+def generate_header_compounds(compounds: List[du.Compound]) -> Roff:
+    functions: List[du.Function] = []
+    defines: List[du.Function] = []
+    enums: List[du.Enum] = []
+    structs: List[du.CompositeType] = []
+    unions: List[du.CompositeType] = []
+    variables: List[du.Variable] = []
+
+    for compound in compounds:
+        if isinstance(compound, du.Function):
+            functions.append(compound)
+        elif isinstance(compound, du.Define):
+            defines.append(compound)
+        elif isinstance(compound, du.Enum):
+            enums.append(compound)
+        elif isinstance(compound, du.CompositeType):
+            if compound.is_struct:
+                structs.append(compound)
+            else:
+                unions.append(compound)
+        elif isinstance(compound, du.Variable):
+            variables.append(compound)
+
+    tables: List[Tuple[str,du.Compound]] = [
+        ("Function", functions),
+        ("Defines", defines),
+        ("Enumeration", enums),
+        ("Structures", structs),
+        ("Unions", unions),
+        ("Variables", variables),
+    ]
+    roff = Roff()
+
+    for table, compounds in tables:
+        if len(compounds) == 0:
+            continue
+
+        roff.append_macro('.nh')
+        roff.append_macro('.ad l')
+        roff.append_macro('.TS')
+        roff.append_macro(';')
+        roff.append_macro('lb lbx')
+        roff.append_macro('l l.')
+        roff.append_macro(f'{table}\tDescription')
+        roff.append_macro('_')
+
+        for compound in compounds:
+            roff.append_text(f'\\fB{compound.name}\\fP(3)\tT{{\n')
+            roff.append_text(f'{briefify(compound.brief)}\n')
+            roff.append_text('T}\n')
+
+        roff.append_macro('.TE')
+        roff.append_macro('.ad')
+        roff.append_macro('.hy')
+    
+        # roff.append_macro(f'.TP')
+        # roff.append_macro(f'.BR {compound.name} (3)')
+        # roff.append_text(compound.brief)
+
+    return roff
+
 def generate_header(header: du.Header) -> None:
     # Generate pages for all compounds referenced by this header.
     for compound in header.compounds:
@@ -311,6 +394,8 @@ def generate_header(header: du.Header) -> None:
             generate_enum(header, compound)
         elif isinstance(compound, du.Define):
             generate_define(header, compound)
+        elif isinstance(compound, du.Variable):
+            generate_variable(header, compound)
 
     roff = Roff()
     roff.append_macro(".SH NAME")
@@ -340,10 +425,7 @@ def generate_header(header: du.Header) -> None:
             grouped[group_id].append(compound)
 
     # Emit all top-level compounds.
-    for compound in top:
-        roff.append_macro(f'.TP')
-        roff.append_macro(f'.BR {compound.name} (3)')
-        roff.append_text(compound.brief)
+    roff.append_roff(generate_header_compounds(top))
 
     # Emit group documentation and their compounds.
     for group_id, compounds in grouped.items():
@@ -353,10 +435,7 @@ def generate_header(header: du.Header) -> None:
             roff.append_text(group.brief)
         else:
             roff.append_roff(group.description)
-        for compound in compounds:
-            roff.append_macro(f'.TP')
-            roff.append_macro(f'.BR {compound.name} (3)')
-            roff.append_text(compound.brief)
+        roff.append_roff(generate_header_compounds(compounds))
 
     # Write the file.
     generate_boilerplate(roff, header)
@@ -395,11 +474,15 @@ def preparse_xml(filename: str) -> None:
     if language == "C++":
         # Doxygen writes docs for structs and unions in their own individual .xml files.
         if kind in ["struct", "union"]:
+            id = element.get("id")
+            assert id is not None
             composite = du.CompositeType(id, kind == "struct")
             composite.name = du.process_text(element.find("compoundname"))
             for sectiondef in element.findall("sectiondef"):
                 for memberdef in sectiondef.findall("memberdef"):
-                    field = du.Field(composite)
+                    field_id = memberdef.get("id")
+                    assert field_id is not None
+                    field = du.Field(field_id, composite)
                     field.type = du.process_text(memberdef.find("type"))
                     field.name = du.process_text(memberdef.find("name"))
                     field.argstring = du.process_text(memberdef.find("argsstring"))
@@ -438,9 +521,9 @@ def preparse_xml(filename: str) -> None:
                             param_type = du.process_text(param_xml.find("type"))
                             param_name_xml = param_xml.find("declname")
                             if param_name_xml is not None:
-                                function.parameters.append(du.Parameter(param_type, param_name_xml.text))
+                                function.parameters.append(du.Function.Parameter(param_type, param_name_xml.text))
                             else:
-                                function.parameters.append(du.Parameter(param_type))
+                                function.parameters.append(du.Function.Parameter(param_type))
                         du.state.compounds[id] = function
                     elif kind == "typedef":
                         typedef = du.Typedef(id, group_id)
@@ -466,7 +549,28 @@ def preparse_xml(filename: str) -> None:
                         define = du.Define(id, group_id)
                         define.name = du.process_text(memberdef.find("name"))
                         define.brief = du.process_brief(memberdef.find("briefdescription"))
+                        for param_xml in memberdef.findall("param"):
+                            declname_xml = param_xml.find("defname")
+                            # Mark this macro as being function-like so even if it doesn't have any arguments
+                            # it will still appear in the documentation with empty parentheses as parameters.
+                            define.function_like = True
+                            # For whatever reason even if a macro accepts no parameters doxygen still emits a
+                            # en empty <param> element. This should never happen when there are parameters.
+                            if declname_xml is None:
+                                define.parameters.clear()
+                                break
+                            define.parameters.append(du.Function.Parameter(declname_xml.text))
+                        # Check if this macro defines a simple value that we can emit in the documentation.
+                        initializer_xml = memberdef.find("initializer")
+                        if initializer_xml is not None:
+                            define.initializer = initializer_xml.text
                         du.state.compounds[id] = define
+                    elif kind == "variable":
+                        variable = du.Variable(id, group_id)
+                        variable.brief = du.process_brief(memberdef.find("briefdescription"))
+                        variable.name = du.process_text(memberdef.find("name"))
+                        variable.type = du.process_text(memberdef.find("type"))
+                        du.state.compounds[id] = variable
                     # Associate the compound with the header file.
                     if id in du.state.compounds:
                         header.compounds.add(du.state.compounds[id])
@@ -504,14 +608,15 @@ def parse_xml(filename: str) -> None:
     if language == "C++":
         # Doxygen writes docs for structs and unions in their own individual .xml files.
         if kind in ["struct", "union"]:
-            compound = du.state.compounds[id]
-            assert isinstance(compound, du.CompositeType)
-            compound.description = du.process_description(element.find("detaileddescription"), compound)
-            for sectiondef in element.findall("sectiondef"):
-                for index,memberdef in enumerate(sectiondef.findall("memberdef")):
-                    field = compound.fields[index]
-                    field.description = du.process_description(memberdef.find("detaileddescription"), field)
-                    compound.fields.append(field)
+            if id := element.get("id"):
+                compound = du.state.compounds[id]
+                assert isinstance(compound, du.CompositeType)
+                compound.description = du.process_description(element.find("detaileddescription"), compound)
+                for sectiondef in element.findall("sectiondef"):
+                    for index,memberdef in enumerate(sectiondef.findall("memberdef")):
+                        field = compound.fields[index]
+                        field.description = du.process_description(memberdef.find("detaileddescription"), field)
+                        compound.fields.append(field)
         elif kind == "file":
             # Create a compound for the file.
             if id := element.get("id"):
@@ -523,17 +628,18 @@ def parse_xml(filename: str) -> None:
                 for sectiondef in element.findall("sectiondef"):
                     for memberdef in sectiondef.findall("memberdef"):
                         if id := memberdef.get("id"):
-                            compound = du.state.compounds[id]
-                            if isinstance(compound, du.Function) or isinstance(compound, du.Typedef) or isinstance(compound, du.Define):
+                            if id in du.state.compounds:
                                 compound = du.state.compounds[id]
-                                compound.description = du.process_description(memberdef.find("detaileddescription"), compound)
-                            elif isinstance(compound, du.Enum):
-                                compound.description = du.process_description(memberdef.find("detaileddescription"), compound)
-                                # Store all enumeration members in the same dictionary as the enumeration itself.
-                                # This is done because when Doxygen references them it does so using a global identifier.
-                                for index,enumval in enumerate(memberdef.findall("enumvalue")):
-                                    elem = compound.elements[index]
-                                    elem.description = du.process_description(enumval.find("detaileddescription"), elem)
+                                if isinstance(compound, du.Function) or isinstance(compound, du.Typedef) or isinstance(compound, du.Define) or isinstance(compound, du.Variable):
+                                    compound = du.state.compounds[id]
+                                    compound.description = du.process_description(memberdef.find("detaileddescription"), compound)
+                                elif isinstance(compound, du.Enum):
+                                    compound.description = du.process_description(memberdef.find("detaileddescription"), compound)
+                                    # Store all enumeration members in the same dictionary as the enumeration itself.
+                                    # This is done because when Doxygen references them it does so using a global identifier.
+                                    for index,enumval in enumerate(memberdef.findall("enumvalue")):
+                                        elem = compound.elements[index]
+                                        elem.description = du.process_description(enumval.find("detaileddescription"), elem)
     # Track all groups and the functions that belong to them.
     # This is used to reference all other functions under each functions SEE ALSO man page section.
     elif kind == "group":
