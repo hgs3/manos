@@ -13,8 +13,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from typing import List, Set, Dict, Tuple, Optional, TextIO, cast
-from io import TextIOWrapper
+from typing import List, Dict, Tuple, Optional, cast
 
 import lxml
 import lxml.etree
@@ -25,6 +24,7 @@ import glob
 import shutil
 import argparse
 import datetime
+import copy
 import re
 
 from .option import args, Arguments
@@ -97,33 +97,33 @@ def output_path(file: str) -> str:
 
 def generate_boilerplate(roff: Roff, compound: du.Compound) -> None:
     if len(compound.deprecated) > 0:
-        roff.append_macro('.SH DEPRECATION')
+        roff.append_macro('SH', 'DEPRECATION')
         for bug in compound.deprecated:
             roff.append_roff(bug)
 
     if len(compound.bugs) > 0:
-        roff.append_macro('.SH BUGS')
+        roff.append_macro('SH', 'BUGS')
         for bug in compound.bugs:
             roff.append_roff(bug)
 
     if len(compound.examples) > 0:
-        roff.append_macro('.SH EXAMPLES')
+        roff.append_macro('SH', 'EXAMPLES')
         for example in compound.examples:
             roff.append_roff(example)
 
     if len(compound.authors) > 0:
-        roff.append_macro('.SH AUTHORS')
+        roff.append_macro('SH', 'AUTHORS')
         for author in compound.authors:
             roff.append_roff(author)
 
     if len(compound.referenced_compounds) > 0:
-        roff.append_macro('.SH SEE ALSO')
+        roff.append_macro('SH', 'SEE ALSO')
         for index,referenced_compound in enumerate(compound.referenced_compounds):
             if index < len(compound.referenced_compounds) - 1:
                 trailing = ','
             else:
                 trailing = ''
-            roff.append_macro(f'.BR {referenced_compound.name} (3){trailing}')
+            roff.append_macro('BR', f'{referenced_compound.name} (3){trailing}')
 
     file = open(output_path(f"{compound.name.lower()}.3"), "w", encoding="utf-8")
     if args.preamble is not None:
@@ -136,16 +136,16 @@ def generate_boilerplate(roff: Roff, compound: du.Compound) -> None:
 
 def generate_composite(header: du.Header, composite: du.CompositeType) -> None:
     roff = Roff()
-    roff.append_macro(".SH NAME")
+    roff.append_macro("SH", "NAME")
     roff.append_text(f'{composite.name} \\- {briefify(composite.brief)}')
 
     if du.state.project_brief is not None:
-        roff.append_macro('.SH LIBRARY')
+        roff.append_macro('SH', 'LIBRARY')
         roff.append_text(du.state.project_brief.strip())
-    roff.append_macro('.SH SYNOPSIS')
-    roff.append_macro('.nf')
-    roff.append_macro(f'.B #include <{header.name}>')
-    roff.append_macro('.PP')
+    roff.append_macro('SH', 'SYNOPSIS')
+    roff.append_macro('nf')
+    roff.append_macro('B', f'#include <{header.name}>')
+    roff.append_macro('PP')
     roff.append_text(f'{"struct" if composite.is_struct else "union"} {composite.name} {{\n')
     for field in composite.fields:
         field_string = field.type
@@ -154,85 +154,100 @@ def generate_composite(header: du.Header, composite: du.CompositeType) -> None:
         field_string += f"{field.name}{field.argstring}"
         roff.append_text(f'    {field_string};\n')
     roff.append_text('};')
-    roff.append_macro('.fi')
+    roff.append_macro('fi')
 
     if composite.description is not None:
-        roff.append_macro('.SH DESCRIPTION')
+        roff.append_macro('SH', 'DESCRIPTION')
         roff.append_roff(composite.description)
     elif composite.brief is not None:
-        roff.append_macro('.SH DESCRIPTION')
+        roff.append_macro('SH', 'DESCRIPTION')
         roff.append_text(composite.brief)
 
     if args.composite_fields is True:
-        roff.append_macro('.SH FIELDS')
+        roff.append_macro('SH', 'FIELDS')
         for field in composite.fields:
-            roff.append_macro(f'.TP')
-            roff.append_macro(f'.BR {field.name} (3)')
-            roff.append_roff(field.description)
+            roff.append_macro('TP')
+            roff.append_macro('BR', field.name)
+            if field.description is not None:
+                # Change each .PP macro into an .IP macro so it's indented under the .TP macro.
+                desc = copy.deepcopy(field.description)
+                for entry in desc.entries:
+                    if isinstance(entry, du.Macro):
+                        if entry.command == "PP":
+                            entry.command = "IP"
+                roff.append_roff(desc)
+            elif field.brief is not None:
+                roff.append_text(field.brief)
 
     # Write the file.
     generate_boilerplate(roff, composite)
 
 def generate_enum(header: du.Header, enum: du.Enum) -> None:
     roff = Roff()
-    roff.append_macro(".SH NAME")
+    roff.append_macro("SH", "NAME")
     roff.append_text(f'{enum.name} \\- {briefify(enum.brief)}')
 
     if du.state.project_brief is not None:
-        roff.append_macro('.SH LIBRARY')
+        roff.append_macro('SH', 'LIBRARY')
         roff.append_text(du.state.project_brief.strip())
-    roff.append_macro('.SH SYNOPSIS')
-    roff.append_macro('.nf')
-    roff.append_macro(f'.B #include <{header.name}>')
-    roff.append_macro('.PP')
+    roff.append_macro('SH', 'SYNOPSIS')
+    roff.append_macro('nf')
+    roff.append_macro('B', f'#include <{header.name}>')
+    roff.append_macro('PP')
     roff.append_text(f'enum {enum.name} {{\n')
     for elem in enum.elements:
         roff.append_text(f'    {elem.name},\n')
     roff.append_text('};')
-    roff.append_macro('.fi')
+    roff.append_macro('fi')
 
     if enum.description is not None:
-        roff.append_macro('.SH DESCRIPTION')
+        roff.append_macro('SH', 'DESCRIPTION')
         roff.append_roff(enum.description)
     elif enum.brief is not None:
-        roff.append_macro('.SH DESCRIPTION')
+        roff.append_macro('SH', 'DESCRIPTION')
         roff.append_text(enum.brief)
 
-    roff.append_macro('.SH CONSTANTS')
+    roff.append_macro('SH', 'CONSTANTS')
     for elem in enum.elements:
-        roff.append_macro(f'.TP')
-        roff.append_macro(f'.BR {elem.name} (3)')
-        if elem.description.is_empty():
+        roff.append_macro('TP')
+        roff.append_macro('BR', elem.name)
+        if elem.description is not None:
+            # Change each .PP macro into an .IP macro so it's indented under the .TP macro.
+            desc = copy.deepcopy(elem.description)
+            for entry in desc.entries:
+                if isinstance(entry, du.Macro):
+                    if entry.command == "PP":
+                        entry.command = "IP"
+            roff.append_roff(desc)
+        elif elem.brief is not None:
             roff.append_text(elem.brief)
-        else:
-            roff.append_roff(elem.description)
 
     # Write the file.
     generate_boilerplate(roff, enum)
 
 def generate_variable(header: du.Header, variable: du.Variable) -> None:
     roff = Roff()
-    roff.append_macro(".SH NAME")
+    roff.append_macro("SH", "NAME")
     roff.append_text(f'{variable.name} \\- {briefify(variable.brief)}')
 
     if du.state.project_brief is not None:
-        roff.append_macro('.SH LIBRARY')
+        roff.append_macro('SH', 'LIBRARY')
         roff.append_text(du.state.project_brief.strip())
 
-    roff.append_macro('.SH SYNOPSIS')
-    roff.append_macro('.nf')
-    roff.append_macro(f'.B #include <{header.name}>')
-    roff.append_macro('.PP')
-    decl = f'.BR "{variable.type}'
+    roff.append_macro('SH', 'SYNOPSIS')
+    roff.append_macro('nf')
+    roff.append_macro('B', f'#include <{header.name}>')
+    roff.append_macro('PP')
+    decl = f'"{variable.type}'
     # If the parameter type ends with an astrisk, that means it's pointer type
     # and there should be no whitespace between it and the parameter name.
     if not variable.type.endswith("*"):
         decl += " "
     decl += f'" {variable.name} ";"'
-    roff.append_macro(decl)
-    roff.append_macro('.fi')
+    roff.append_macro('BR', decl)
+    roff.append_macro('fi')
 
-    roff.append_macro('.SH DESCRIPTION')
+    roff.append_macro('SH', 'DESCRIPTION')
     roff.append_roff(variable.description)
 
     # Write the file.
@@ -240,18 +255,18 @@ def generate_variable(header: du.Header, variable: du.Variable) -> None:
 
 def generate_define(header: du.Header, define: du.Define) -> None:
     roff = Roff()
-    roff.append_macro(".SH NAME")
+    roff.append_macro("SH", "NAME")
     roff.append_text(f'{define.name} \\- {briefify(define.brief)}')
 
     if du.state.project_brief is not None:
-        roff.append_macro('.SH LIBRARY')
+        roff.append_macro('SH', 'LIBRARY')
         roff.append_text(du.state.project_brief.strip())
 
-    roff.append_macro('.SH SYNOPSIS')
-    roff.append_macro('.nf')
-    roff.append_macro(f'.B #include <{header.name}>')
-    roff.append_macro('.PP')
-    signature = f'.BI "#define '
+    roff.append_macro('SH', 'SYNOPSIS')
+    roff.append_macro('nf')
+    roff.append_macro('B', '#include <{header.name}>')
+    roff.append_macro('PP')
+    signature = f'"#define '
     if define.function_like:
         signature += f'{define.name}('
         for index, param in enumerate(define.parameters):
@@ -265,22 +280,22 @@ def generate_define(header: du.Header, define: du.Define) -> None:
         signature += f'{define.name}"'
         if define.initializer is not None:
             signature += f' {define.initializer}'
-    roff.append_macro(signature)
-    roff.append_macro('.fi')
+    roff.append_macro("BI", signature)
+    roff.append_macro('fi')
 
     if define.description is not None:
-        roff.append_macro('.SH DESCRIPTION')
+        roff.append_macro('SH', 'DESCRIPTION')
         roff.append_roff(define.description)
     elif define.brief is not None:
-        roff.append_macro('.SH DESCRIPTION')
+        roff.append_macro('SH', 'DESCRIPTION')
         roff.append_text(define.brief)
 
     if define.function_params is not None and args.macro_parameters is True:
-        roff.append_macro('.SH PARAMETERS')
+        roff.append_macro('SH', 'PARAMETERS')
         roff.append_roff(define.function_params)
 
     if define.description_return is not None:
-        roff.append_macro('.SH RETURN VALUE')
+        roff.append_macro('SH', 'RETURN VALUE')
         roff.append_roff(define.description_return)
 
     # Write the file.
@@ -288,18 +303,18 @@ def generate_define(header: du.Header, define: du.Define) -> None:
 
 def generate_function(header: du.Header, func: du.Function) -> None:
     roff = Roff()
-    roff.append_macro(".SH NAME")
+    roff.append_macro("SH", "NAME")
     roff.append_text(f'{func.name} \\- {briefify(func.brief)}')
 
     if du.state.project_brief is not None:
-        roff.append_macro('.SH LIBRARY')
+        roff.append_macro('SH', 'LIBRARY')
         roff.append_text(du.state.project_brief.strip())
 
-    roff.append_macro('.SH SYNOPSIS')
-    roff.append_macro('.nf')
-    roff.append_macro(f'.B #include <{header.name}>')
-    roff.append_macro('.PP')
-    signature = f'.BI "{func.return_type}'
+    roff.append_macro('SH', 'SYNOPSIS')
+    roff.append_macro('nf')
+    roff.append_macro('B', f'#include <{header.name}>')
+    roff.append_macro('PP')
+    signature = f'"{func.return_type}'
     # If the return type ends with an astrisk, then that means it's a pointer type
     # and there should be no whitespace between it and the function name.
     if not func.return_type.endswith("*"):
@@ -318,22 +333,22 @@ def generate_function(header: du.Header, func: du.Function) -> None:
         if index < len(func.parameters) - 1:
             signature += ', '
     signature += ');"'
-    roff.append_macro(signature)
-    roff.append_macro('.fi')
+    roff.append_macro('BI', signature)
+    roff.append_macro('fi')
 
     if func.description is not None:
-        roff.append_macro('.SH DESCRIPTION')
+        roff.append_macro('SH', 'DESCRIPTION')
         roff.append_roff(func.description)
     elif func.brief is not None:
-        roff.append_macro('.SH DESCRIPTION')
+        roff.append_macro('SH', 'DESCRIPTION')
         roff.append_text(func.brief)
 
     if func.function_params is not None and args.function_parameters is True:
-        roff.append_macro('.SH PARAMETERS')
+        roff.append_macro('SH', 'PARAMETERS')
         roff.append_roff(func.function_params)
 
     if func.description_return is not None:
-        roff.append_macro('.SH RETURN VALUE')
+        roff.append_macro('SH', 'RETURN VALUE')
         roff.append_roff(func.description_return)
 
     # Write the file.
@@ -363,40 +378,43 @@ def generate_header_compounds(compounds: List[du.Compound]) -> Roff:
             variables.append(compound)
 
     tables: List[Tuple[str,du.Compound]] = [
-        ("Function", functions),
+        ("Functions", functions),
         ("Defines", defines),
-        ("Enumeration", enums),
+        ("Enumerations", enums),
         ("Structures", structs),
         ("Unions", unions),
         ("Variables", variables),
     ]
+
     roff = Roff()
-
-    for table, compounds in tables:
-        if len(compounds) == 0:
-            continue
-
-        roff.append_macro('.nh')
-        roff.append_macro('.ad l')
-        roff.append_macro('.TS')
-        roff.append_macro(';')
-        roff.append_macro('lb lbx')
-        roff.append_macro('l l.')
-        roff.append_macro(f'{table}\tDescription')
-        roff.append_macro('_')
-
-        for compound in compounds:
-            roff.append_text(f'\\fB{compound.name}\\fP(3)\tT{{\n')
-            roff.append_text(f'{briefify(compound.brief)}\n')
-            roff.append_text('T}\n')
-
-        roff.append_macro('.TE')
-        roff.append_macro('.ad')
-        roff.append_macro('.hy')
-    
-        # roff.append_macro(f'.TP')
-        # roff.append_macro(f'.BR {compound.name} (3)')
-        # roff.append_text(compound.brief)
+    if True:
+        emitted = False
+        roff.append_macro('TS')
+        roff.append_text('tab(;);\n')
+        for table, compounds in tables:
+            if len(compounds) > 0:
+                if emitted:
+                    roff.append_source('\n')
+                    roff.append_macro('T&')
+                roff.append_text('l l.\n')
+                roff.append_text(f'\\fB{table}\\fR;\\fBDescription\\fR\n')
+                roff.append_text('_\n')
+                for compound in compounds:
+                    roff.append_text(f'\\fB{compound.name}\\fR(3);')
+                    roff.append_text('T{\n')
+                    roff.append_text(f'{compound.brief}\n')
+                    roff.append_text('T}\n')
+                emitted = True
+        roff.append_macro('TE')
+    else:
+        for table, compounds in tables:
+            if len(compounds) > 0:
+                roff.append_macro('PP')
+                roff.append_text(f'{table}:')
+                for compound in compounds:
+                    roff.append_macro('TP')
+                    roff.append_macro('BR', f'{compound.name} (3)')
+                    roff.append_text(compound.brief)
 
     return roff
 
@@ -415,52 +433,61 @@ def generate_header(header: du.Header) -> None:
             generate_variable(header, compound)
 
     roff = Roff()
-    roff.append_macro(".SH NAME")
+    roff.append_macro("SH", "NAME")
     if header.brief is not None:
         roff.append_text(f'{header.name} \\- {briefify(header.brief)}')
     else:
         roff.append_text(f'{header.name}')
 
     if du.state.project_brief is not None:
-        roff.append_macro('.SH LIBRARY')
+        roff.append_macro('SH', 'LIBRARY')
         roff.append_text(du.state.project_brief.strip())
-    roff.append_macro('.SH SYNOPSIS')
-    roff.append_macro('.nf')
-    roff.append_macro(f'.B #include <{header.name}>')
-    roff.append_macro('.fi')
+    roff.append_macro('SH SYNOPSIS')
+    roff.append_macro('nf')
+    roff.append_macro('B', f'#include <{header.name}>')
+    roff.append_macro('fi')
 
     if header.description is not None:
-        roff.append_macro('.SH DESCRIPTION')
+        roff.append_macro('SH', 'DESCRIPTION')
         roff.append_roff(header.description)
     elif header.brief is not None:
-        roff.append_macro('.SH DESCRIPTION')
+        roff.append_macro('SH', 'DESCRIPTION')
         roff.append_text(header.brief)
 
-    top: List[du.Compound] = []
-    grouped: Dict[str, List[du.Compound]] = {}
+    # Top-level and grouped compounds.
+    globals: List[du.Compound] = []
+    locales: Dict[str, List[du.Compound]] = {}
 
     # Gather all compounds that belong to groups.
     for compound in header.compounds:
         group_id = compound.group_id
         if group_id is None:
-            top.append(compound)
+            globals.append(compound)
         else:
-            if group_id not in grouped:
-                grouped[group_id] = []
-            grouped[group_id].append(compound)
+            if group_id not in locales:
+                locales[group_id] = []
+            locales[group_id].append(compound)
 
     # Emit all top-level compounds.
-    roff.append_roff(generate_header_compounds(top))
+    roff.append_roff(generate_header_compounds(globals))
 
     # Emit group documentation and their compounds.
-    for group_id, compounds in grouped.items():
+    groups = [None] * len(locales)
+    for group_id, compounds in locales.items():
         group = du.state.compounds[group_id]
-        roff.append_macro(f'.SS {group.name}')
+        group_roff = du.Roff()
+        group_roff.append_macro('SS', group.name)
         if group.description is not None:
-            roff.append_roff(group.description)
+            group_roff.append_roff(group.description)
         elif group.brief is not None:
-            roff.append_text(group.brief)
-        roff.append_roff(generate_header_compounds(compounds))
+            group_roff.append_text(group.brief)
+        group_roff.append_roff(generate_header_compounds(compounds))
+        # Keep groups sorted.
+        groups[du.state.groups.index(group_id)] = group_roff
+
+    # Emit the sorted groups.
+    for group in groups:
+        roff.append_roff(group)
 
     # Write the file.
     generate_boilerplate(roff, header)
@@ -673,28 +700,16 @@ def parse_xml(filename: str) -> None:
             group.brief = du.process_brief(element.find("briefdescription"))
             group.description = du.process_description(element.find("detaileddescription"), group)
 
-# def parse_xml(file: str) -> None:
-#     tree = lxml.etree.parse(file)
-#     element = tree.find("compounddef")
-#     if element is None:
-#         return
-#     # Only consider source files (e.g. ignore Markdown files).
-#     language = element.get("language")
-#     if language != "C++":
-#         return
-#     kind = element.get("kind")
-#     if kind == "file":
-#         header_display_name: Optional[str] = None
-#         location = element.find("location")
-#         if location is not None and args.include_path == "full":
-#             header_display_name = location.get("file")
-#         if header_display_name is None:
-#             header_display_name = du.process_text(element.find("compoundname"))
-#         parse_header(element)
-#         for sectiondef in element.findall("sectiondef"):
-#             for memberdef in sectiondef.findall("memberdef"):
-#                 if memberdef.get("kind") == "function":
-#                     parse_function(memberdef, header_display_name)
+# Sort groups and pages by the order in which they are defined.
+def parse_index_xml(xmlfile: str) -> None:
+    tree = lxml.etree.parse(xmlfile)
+    for element in tree.findall("compound"):
+        refid = element.get("refid")
+        if refid is None:
+            continue
+        kind = element.get("kind")
+        if kind == "group":
+            du.state.groups.append(refid)
 
 def exec(doxyfile: str) -> int:
     # Clone the doxyfile
@@ -772,6 +787,9 @@ def exec(doxyfile: str) -> int:
     if len(xml_files) == 0:
         print("error: no XML files match the pattern", file=args.stderr)
         return 1
+
+    # Extract compound order.
+    parse_index_xml(os.path.join(working_dir, "xml", "index.xml"))
 
     # Extract top-level documentation first.
     for file in xml_files:

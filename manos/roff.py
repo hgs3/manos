@@ -13,13 +13,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from typing import List, Union, Optional
-
-import lxml
-import lxml.etree
-import math
-
-from .ordered_set import OrderedSet
+from typing import List, Dict, Any, Union, Optional
 from .sentence import segment
 
 class Text:
@@ -28,16 +22,16 @@ class Text:
 
 # This is identical to 'Text' except it is output as-is without any special processing.
 # It is intended for literal blocks, like code examples.
-class CodeLine:
+class LiteralText:
     def __init__(self, source: str) -> None:
-        assert source.find("\n") == -1, "code line cannot contain a new line character"
         self.source = source
 
 class Macro:
-    def __init__(self, name: str) -> None:
-        self.name = name
+    def __init__(self, name: str, argument: Optional[str]) -> None:
+        self.command = name
+        self.argument = argument
 
-RoffElements = Union[Text, Macro, CodeLine]
+RoffElements = Union[Text, Macro, LiteralText]
 
 class Roff:
     def __init__(self) -> None:
@@ -65,52 +59,33 @@ class Roff:
         self.entries.append(Text(other))
 
     def append_source(self, other: str) -> None:
-        self.entries.append(CodeLine(other))
+        self.entries.append(LiteralText(other))
 
-    def append_macro(self, other: str) -> None:
+    def append_macro(self, name: str, argument: Optional[str] = None) -> None:
+        assert name[0] != ".", "You should omit the dot when appending a macro."
         roff = Roff()
-        roff.entries.append(Macro(other))
+        roff.entries.append(Macro(name, argument))
         self.append_roff(roff)
 
-    def copy(self) -> 'Roff':
+    def __deepcopy__(self, memo: Dict[int, Any] = None) -> 'Roff':
         copy = Roff()
-        copy.entries = self.entries.copy()
+        for entry in self.entries:
+            if isinstance(entry, Macro):
+                copy.append_macro(entry.command, entry.argument)
+            elif isinstance(entry, Text):
+                copy.append_text(entry.content)
+            elif isinstance(entry, LiteralText):
+                copy.append_source(entry.source)
         return copy
-
-    def filter(self) -> List[RoffElements]:
-        keep: List[RoffElements] = []
-        prev: Optional[RoffElements] = None
-        for curr in self.entries:
-            if isinstance(curr, Text):
-                # Only keep non-blank text lines.
-                if len(curr.content.strip()) > 0:
-                    keep.append(curr)
-                    prev = curr
-            elif isinstance(curr, CodeLine):
-                keep.append(curr)
-                prev = curr
-            elif isinstance(curr, Macro):
-                # If the first commands are .PP commands (indicating a new paragraph), then
-                # remove them as this is implied.
-                if prev is None and curr.name == ".PP":
-                    continue
-                # Do not add duplicate .PP commands in a row.
-                elif not (isinstance(prev, Macro) and prev.name == curr.name and prev.name == ".PP"):
-                    keep.append(curr)
-                    prev = curr
-        # Remove trailing paragraph breaks.
-        while len(keep) > 0 and isinstance(keep[-1], Macro) and keep[-1].name == ".PP":
-            keep.pop()
-        return keep
     
     def simplify(self) -> 'Roff':
-        copy = self.copy()
-        copy.entries = copy.filter()
+        copy = Roff()
+        copy.entries = self._simplify()
         return copy
     
     def has_command(self, index: int, command: str) -> bool:
         entry = self.entries[index]
-        if isinstance(entry, Macro) and entry.name == command:
+        if isinstance(entry, Macro) and entry.command == command:
             return True
         return False
     
@@ -125,7 +100,7 @@ class Roff:
         # This is needed so sentence segmentation is performed on the entire string.
         entries: List[RoffElements] = []
         textblob = ""
-        for curr in self.filter():
+        for curr in self._simplify():
             if isinstance(curr, Text):
                 textblob += curr.content
             else:
@@ -146,21 +121,49 @@ class Roff:
                 # Thie ensures macros are always on their own line.
                 if len(text) > 0:
                     text += "\n"
-                text += curr.name
-            elif isinstance(curr, CodeLine):
+                text += f".{curr.command}"
+                if curr.argument is not None:
+                    text += f" {curr.argument}"
+            elif isinstance(curr, LiteralText):
                 # If the previous entry was a macro, then add a new line after it.
                 if isinstance(prev, Macro):
                     text += "\n"
                 # If the previous entry was code, then append a new line.
                 # This ensures each line of code is seperated onto their own line.
-                elif isinstance(prev, CodeLine):
+                elif isinstance(prev, LiteralText):
                     text += "\n"
                 text += curr.source
             elif isinstance(curr, Text):
                 # If the previous entry was a macro or source code, then add a new line after it.
                 # This deliminates code/macros from paragraph text.
-                if isinstance(prev, Macro) or isinstance(prev, CodeLine):
+                if isinstance(prev, Macro) or isinstance(prev, LiteralText):
                     text += "\n"
                 text += "\n".join(segment(curr.content))
             prev = curr
         return text
+
+    def _simplify(self) -> List[RoffElements]:
+        keep: List[RoffElements] = []
+        prev: Optional[RoffElements] = None
+        for curr in self.entries:
+            if isinstance(curr, Text):
+                # Only keep non-blank text lines.
+                if len(curr.content.strip()) > 0:
+                    keep.append(curr)
+                    prev = curr
+            elif isinstance(curr, LiteralText):
+                keep.append(curr)
+                prev = curr
+            elif isinstance(curr, Macro):
+                # If the first commands are .PP commands (indicating a new paragraph), then
+                # remove them as this is implied.
+                if prev is None and curr.command == "PP":
+                    continue
+                # Do not add duplicate .PP commands in a row.
+                elif not (isinstance(prev, Macro) and prev.command == curr.command and prev.command == "PP"):
+                    keep.append(curr)
+                    prev = curr
+        # Remove trailing paragraph breaks.
+        while len(keep) > 0 and isinstance(keep[-1], Macro) and keep[-1].command == "PP":
+            keep.pop()
+        return keep

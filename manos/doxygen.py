@@ -205,7 +205,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
     # This implementation strips the unneccessary <para> elements when processing the parent element.
     if elem.tag == "para":
         roff = Roff()
-        roff.append_macro(".PP")
+        roff.append_macro("PP")
         roff.append_roff(process_children(ctx, elem))
         return roff
 
@@ -219,7 +219,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                 for parameternamelist in parameteritem.findall("parameternamelist"):
                     for parametername in parameternamelist.findall("parametername"):
                         params.append(process_text(parametername))
-                content.append_macro(".TP")
+                content.append_macro("TP")
                 content.append_text(", ".join(params) + "\n")
                 content.append_text(str(process_as_roff(ctx, parameteritem.find("parameterdescription"))))
             ctx.active_compound.function_params = content
@@ -230,7 +230,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                 for parameternamelist in parameteritem.findall("parameternamelist"):
                     for parametername in parameternamelist.findall("parametername"):
                         retvals.append(process_text(parametername))
-                content.append_macro(".TP")
+                content.append_macro("TP")
                 content.append_text(", ".join(retvals) + "\n")
                 content.append_text(str(process_as_roff(ctx, parameteritem.find("parameterdescription"))))
             if isinstance(ctx.active_compound, Function) or isinstance(ctx.active_compound, Define):
@@ -267,9 +267,9 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
     if elem.tag == "ulink":
         url = elem.get("url")
         roff = Roff()
-        roff.append_macro(f".UR {url}")
+        roff.append_macro("UR", url)
         roff.append_roff(process_children(ctx, elem))
-        roff.append_macro(".UE")
+        roff.append_macro("UE")
         return roff
 
     # Sections and subsections.
@@ -284,7 +284,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
         title = title.capitalize() # Man page sections should be lowercase with the first letter uppercased.
         roff = Roff()
         if args.subsection_titles:
-            roff.append_macro(f".SS {title}")
+            roff.append_macro("SS", title)
         roff.append_roff(process_children(ctx, elem))
         return roff
 
@@ -297,27 +297,27 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
     # Ordered and undordered list.
     if elem.tag in ["orderedlist", "itemizedlist"]:
         roff = Roff()
-        roff.append_macro(".RS")
+        roff.append_macro("RS")
         for index,child in enumerate(elem):
             assert child.tag == "listitem", "expected <listitem> as child of list"
             listitem = Roff()
             if elem.tag == "itemizedlist":
-                listitem.append_macro(".IP \\[bu] 2")
+                listitem.append_macro("IP", "\\[bu] 2")
             else:
                 index += 1
                 indent = int(math.log(index, 10)) + 3
-                listitem.append_macro(f".IP {index}. {indent}")
+                listitem.append_macro("IP", f"{index}. {indent}")
             listitem.append_roff(process_children(ctx, child))
             # Lists should NOT begin with a .PP macro otherwise Roff will begin a new paragraph
             # which puts the content of the list item on the next line below the bullet point.
             # Unfortunatly, Doxygen's XML output likes to insert a <para> element as an
             # immediate child of the <listitem> element; the following check catches
             # and removes it.
-            if len(listitem) > 2 and listitem.has_command(1, ".PP"):
+            if len(listitem) > 2 and listitem.has_command(1, "PP"):
                 listitem.pop(1)
-            listitem.entries = list(filter(lambda x: not (isinstance(x, Macro) and x.name == ".PP"), listitem.entries)) 
+            listitem.entries = list(filter(lambda x: not (isinstance(x, Macro) and x.command == "PP"), listitem.entries)) 
             roff.append_roff(listitem)
-        roff.append_macro(".RE")
+        roff.append_macro("RE")
         return roff
 
     # Multi-line source code examples.
@@ -328,9 +328,9 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
         # this behavior should be disabled.
         ctx.ignore_refs = True
         roff = Roff()
-        roff.append_macro(".PP")
-        roff.append_macro(".in +4n")
-        roff.append_macro(".EX")
+        roff.append_macro("PP")
+        roff.append_macro("in", "+4n")
+        roff.append_macro("EX")
         for codeline in elem:
             assert codeline.tag == "codeline", "expected <codeline> element in <programlisting>"
             text = ""
@@ -338,9 +338,9 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                 assert isinstance(entry, Text)
                 text += entry.content
             roff.append_source(text)
-        roff.append_macro(".EE")
-        roff.append_macro(".in")
-        roff.append_macro(".PP")
+        roff.append_macro("EE")
+        roff.append_macro("in")
+        roff.append_macro("PP")
         ctx.ignore_refs = False
         return roff
     
@@ -396,14 +396,14 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
     # Move to the next line.
     if elem.tag == "linebreak":
         roff = Roff()
-        roff.append_macro(".br")
+        roff.append_macro("br")
         return roff
 
     # Ignore index tags as they're only useful for LaTeX and DocBook formats.
     # They have no use in man pages so no warning is needed.
     if elem.tag == "indexentry":
         return Roff()
-    
+
     # This element appears in various parts of the documentation, i.e. to indicate the type of a struct field.
     # Just visit its children without any other special handling.
     if elem.tag == "type":
@@ -447,7 +447,7 @@ def process_description(elem: Optional[lxml.etree._Element], compound: Compound)
     desc = process_as_roff(Context(False, compound), elem)
     if len(str(desc).strip()) == 0:
         return None
-    return desc
+    return desc.simplify()
 
 def process_text(elem: Optional[lxml.etree._Element]) -> str:
     text = ""
@@ -467,5 +467,6 @@ class State:
         self.project_version: Optional[str] = None
         self.examples: Dict[str, List[Example]] = {}
         self.compounds: Dict[str, Compound] = {}
+        self.groups: List[str] = []
 
 state = State()
