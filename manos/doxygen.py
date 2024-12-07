@@ -28,8 +28,8 @@ class Compound:
         self.id = id
         self.group_id = group_id
         self.name = "unnamed"
-        self.brief = ""
-        self.description = Roff()
+        self.brief: Optional[str] = None
+        self.description: Optional[Roff] = None
         # The following are extracted when parsing the detailed description of the compound.
         self.referenced_compounds: OrderedSet[Compound] = OrderedSet()
         self.authors: List[Roff] = []
@@ -177,11 +177,12 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
             # To deduce which is which, check if the XML for a function is being processed and if so, then
             # check if what is being processed matches a function parameter.
             is_param = False
-            if ctx.active_compound is not None and isinstance(ctx.active_compound, Function):
-                 for param in ctx.active_compound.parameters:
-                    if raw_text == param.name:
-                        is_param = True
-                        break
+            if ctx.active_compound is not None:
+                 if isinstance(ctx.active_compound, Function) or isinstance(ctx.active_compound, Define):
+                    for param in ctx.active_compound.parameters:
+                        if raw_text == param.name:
+                            is_param = True
+                            break
             # Emit the inline code for the parameter differently than other inline code snippets.
             if is_param:
                 roff = Roff()
@@ -432,15 +433,21 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
     # to then and can properly deal with it.
     raise Exception("unknown node", elem.tag)
 
-def process_brief(elem: Optional[lxml.etree._Element]) -> str:
+def process_brief(elem: Optional[lxml.etree._Element]) -> Optional[str]:
     # Brief descriptions should consist of a single line so remove any
     # commands, like .PP, because they will force text onto another line.
     roff = process_as_roff(Context(True, None), elem)
     roff.entries = list(filter(lambda x: isinstance(x, Text), roff.entries))
-    return str(roff).strip()
+    brief = str(roff).strip()
+    if len(brief) == 0:
+        return None
+    return brief
 
-def process_description(elem: Optional[lxml.etree._Element], compound: Compound) -> Roff:
-    return process_as_roff(Context(False, compound), elem)
+def process_description(elem: Optional[lxml.etree._Element], compound: Compound) -> Optional[Roff]:
+    desc = process_as_roff(Context(False, compound), elem)
+    if len(str(desc).strip()) == 0:
+        return None
+    return desc
 
 def process_text(elem: Optional[lxml.etree._Element]) -> str:
     text = ""

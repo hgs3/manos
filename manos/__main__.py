@@ -155,8 +155,13 @@ def generate_composite(header: du.Header, composite: du.CompositeType) -> None:
         roff.append_text(f'    {field_string};\n')
     roff.append_text('};')
     roff.append_macro('.fi')
-    roff.append_macro('.SH DESCRIPTION')
-    roff.append_roff(composite.description)
+
+    if composite.description is not None:
+        roff.append_macro('.SH DESCRIPTION')
+        roff.append_roff(composite.description)
+    elif composite.brief is not None:
+        roff.append_macro('.SH DESCRIPTION')
+        roff.append_text(composite.brief)
 
     if args.composite_fields is True:
         roff.append_macro('.SH FIELDS')
@@ -186,8 +191,12 @@ def generate_enum(header: du.Header, enum: du.Enum) -> None:
     roff.append_text('};')
     roff.append_macro('.fi')
 
-    roff.append_macro('.SH DESCRIPTION')
-    roff.append_roff(enum.description)
+    if enum.description is not None:
+        roff.append_macro('.SH DESCRIPTION')
+        roff.append_roff(enum.description)
+    elif enum.brief is not None:
+        roff.append_macro('.SH DESCRIPTION')
+        roff.append_text(enum.brief)
 
     roff.append_macro('.SH CONSTANTS')
     for elem in enum.elements:
@@ -259,8 +268,12 @@ def generate_define(header: du.Header, define: du.Define) -> None:
     roff.append_macro(signature)
     roff.append_macro('.fi')
 
-    roff.append_macro('.SH DESCRIPTION')
-    roff.append_roff(define.description)
+    if define.description is not None:
+        roff.append_macro('.SH DESCRIPTION')
+        roff.append_roff(define.description)
+    elif define.brief is not None:
+        roff.append_macro('.SH DESCRIPTION')
+        roff.append_text(define.brief)
 
     if define.function_params is not None and args.macro_parameters is True:
         roff.append_macro('.SH PARAMETERS')
@@ -308,8 +321,12 @@ def generate_function(header: du.Header, func: du.Function) -> None:
     roff.append_macro(signature)
     roff.append_macro('.fi')
 
-    roff.append_macro('.SH DESCRIPTION')
-    roff.append_roff(func.description)
+    if func.description is not None:
+        roff.append_macro('.SH DESCRIPTION')
+        roff.append_roff(func.description)
+    elif func.brief is not None:
+        roff.append_macro('.SH DESCRIPTION')
+        roff.append_text(func.brief)
 
     if func.function_params is not None and args.function_parameters is True:
         roff.append_macro('.SH PARAMETERS')
@@ -399,7 +416,10 @@ def generate_header(header: du.Header) -> None:
 
     roff = Roff()
     roff.append_macro(".SH NAME")
-    roff.append_text(f'{header.name} \\- {briefify(header.brief)}')
+    if header.brief is not None:
+        roff.append_text(f'{header.name} \\- {briefify(header.brief)}')
+    else:
+        roff.append_text(f'{header.name}')
 
     if du.state.project_brief is not None:
         roff.append_macro('.SH LIBRARY')
@@ -408,8 +428,13 @@ def generate_header(header: du.Header) -> None:
     roff.append_macro('.nf')
     roff.append_macro(f'.B #include <{header.name}>')
     roff.append_macro('.fi')
-    roff.append_macro('.SH DESCRIPTION')
-    roff.append_roff(header.description)
+
+    if header.description is not None:
+        roff.append_macro('.SH DESCRIPTION')
+        roff.append_roff(header.description)
+    elif header.brief is not None:
+        roff.append_macro('.SH DESCRIPTION')
+        roff.append_text(header.brief)
 
     top: List[du.Compound] = []
     grouped: Dict[str, List[du.Compound]] = {}
@@ -431,10 +456,10 @@ def generate_header(header: du.Header) -> None:
     for group_id, compounds in grouped.items():
         group = du.state.compounds[group_id]
         roff.append_macro(f'.SS {group.name}')
-        if group.description.is_empty():
-            roff.append_text(group.brief)
-        else:
+        if group.description is not None:
             roff.append_roff(group.description)
+        elif group.brief is not None:
+            roff.append_text(group.brief)
         roff.append_roff(generate_header_compounds(compounds))
 
     # Write the file.
@@ -556,10 +581,10 @@ def preparse_xml(filename: str) -> None:
                             define.function_like = True
                             # For whatever reason even if a macro accepts no parameters doxygen still emits a
                             # en empty <param> element. This should never happen when there are parameters.
-                            if declname_xml is None:
+                            if declname_xml is None or declname_xml.text is None:
                                 define.parameters.clear()
                                 break
-                            define.parameters.append(du.Function.Parameter(declname_xml.text))
+                            define.parameters.append(du.Define.Parameter(declname_xml.text))
                         # Check if this macro defines a simple value that we can emit in the documentation.
                         initializer_xml = memberdef.find("initializer")
                         if initializer_xml is not None:

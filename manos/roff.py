@@ -117,9 +117,6 @@ class Roff:
     def pop(self, index: int) -> RoffElements:
         return self.entries.pop(index)
 
-    def is_empty(self) -> bool:
-        return len(str(self).strip()) == 0
-
     def __len__(self) -> int:
         return len(self.entries)
 
