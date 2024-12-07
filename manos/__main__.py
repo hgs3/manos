@@ -355,6 +355,9 @@ def generate_function(header: du.Header, func: du.Function) -> None:
     generate_boilerplate(roff, func)
 
 def generate_header_compounds(compounds: List[du.Compound]) -> Roff:
+    if len(compounds) == 0:
+        return Roff()
+
     functions: List[du.Function] = []
     defines: List[du.Function] = []
     enums: List[du.Enum] = []
