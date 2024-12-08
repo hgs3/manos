@@ -167,14 +167,14 @@ def generate_composite(composite: du.CompositeType) -> None:
     roff.append_macro('nf')
     roff.append_macro('B', f'#include <{composite.header}>')
     roff.append_macro('PP')
-    roff.append_text(f'{"struct" if composite.is_struct else "union"} {composite.name} {{\n')
+    roff.append_macro('B', f'{"struct" if composite.is_struct else "union"} {composite.name} {{')
     for field in composite.fields:
         field_string = field.type
         if not field_string.endswith("*"):
             field_string += " "
         field_string += f"{field.name}{field.argstring}"
-        roff.append_text(f'    {field_string};\n')
-    roff.append_text('};')
+        roff.append_macro('B', f'"    {field_string};"')
+    roff.append_macro('B', '};')
     roff.append_macro('fi')
 
     if composite.description is not None:
@@ -219,10 +219,10 @@ def generate_enum(enum: du.Enum) -> None:
     roff.append_macro('nf')
     roff.append_macro('B', f'#include <{enum.header}>')
     roff.append_macro('PP')
-    roff.append_text(f'enum {enum.name} {{\n')
+    roff.append_macro('B', f'enum {enum.name} {{')
     for elem in enum.elements:
-        roff.append_text(f'    {elem.name},\n')
-    roff.append_text('};')
+        roff.append_macro('B', f'"    {elem.name},"')
+    roff.append_macro('B', '};')
     roff.append_macro('fi')
 
     if enum.description is not None:
@@ -678,6 +678,10 @@ def preparse_xml(filename: str) -> None:
             name_xml = element.find("compoundname")
             assert name_xml is not None
             assert name_xml.text is not None
+            # If this file is NOT a header file, then ignore it;
+            # files like C files and DOX files should be ignored.
+            if not name_xml.text.lower().endswith(".h"):
+                return
             header = du.Header(id)
             header.name = name_xml.text
             du.state.compounds[id] = header
@@ -731,7 +735,7 @@ def parse_sectiondef(element: lxml.etree._Element) -> None:
                         # This is done because when Doxygen references them it does so using a global identifier.
                         for index,enumval in enumerate(memberdef.findall("enumvalue")):
                             elem = compound.elements[index]
-                            elem.description = du.process_description(enumval.find("detaileddescription"), elem)
+                            elem.description = du.process_description(enumval.find("detaileddescription"), compound)
 
 def parse_xml(filename: str) -> None:
     tree = lxml.etree.parse(filename)
@@ -751,16 +755,17 @@ def parse_xml(filename: str) -> None:
                 for sectiondef in element.findall("sectiondef"):
                     for index,memberdef in enumerate(sectiondef.findall("memberdef")):
                         field = compound.fields[index]
-                        field.description = du.process_description(memberdef.find("detaileddescription"), field)
+                        field.description = du.process_description(memberdef.find("detaileddescription"), compound)
                         compound.fields.append(field)
         elif kind == "file":
             # Create a compound for the file.
             if id := element.get("id"):
-                header = du.state.compounds[id]
-                header.brief = du.process_brief(element.find("briefdescription"))
-                header.description = du.process_description(element.find("detaileddescription"), header)
-                assert isinstance(header, du.Header)
-                parse_sectiondef(element)
+                if id in du.state.compounds:
+                    header = du.state.compounds[id]
+                    header.brief = du.process_brief(element.find("briefdescription"))
+                    header.description = du.process_description(element.find("detaileddescription"), header)
+                    assert isinstance(header, du.Header)
+                    parse_sectiondef(element)
     # Track all groups and the functions that belong to them.
     # This is used to reference all other functions under each functions SEE ALSO man page section.
     elif kind == "group":
@@ -916,7 +921,7 @@ def main(doxyfile: str, arguments: Arguments) -> int:
 
     # Verify Doxygen is installed.
     if shutil.which("doxygen") is None:
-        print("error: could not find doxygen;", file=op.args.stderr)
+        print("error: could not find Doxygen", file=op.args.stderr)
         print("       please install it https://www.doxygen.nl/", file=op.args.stderr)
         return 1
 
@@ -937,8 +942,8 @@ def main(doxyfile: str, arguments: Arguments) -> int:
     # Doxygen 1.9.2 began writing out "doxyfile.xml" which contains all settings used in the Doxyfile.
     # Manos uses this file to extract information about the project, like is name and version.
     if version < (1, 12, 0) or version >= (1, 13, 0):
-        print(f"error: doxygen 1.12 series is required, found version {raw_version}", file=op.args.stderr)
-        print("        please upgrade it https://www.doxygen.nl/", file=op.args.stderr)
+        print(f"error: Doxygen 1.12 series is required, found version {raw_version}", file=op.args.stderr)
+        print("        please upgrade or downgrade it https://www.doxygen.nl/", file=op.args.stderr)
         return 1
 
     # Run the main program.

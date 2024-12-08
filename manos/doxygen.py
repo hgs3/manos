@@ -19,6 +19,7 @@ import lxml
 import lxml.etree
 import math
 
+from .builtin import c_functions, posix_functions
 from .roff import Roff, Macro, Text
 from .ordered_set import OrderedSet
 from . import option as op
@@ -162,15 +163,21 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
     # Bold.
     if elem.tag == "bold":
         content = process_children(ctx, elem)
-        roff = Roff()
-        roff.append_text(f"\\f[B]{content}\\f[R]")
+        if op.args.preserve_styles:
+            roff = Roff()
+            roff.append_text(f"\\f[B]{content}\\f[R]")
+        else:
+            roff = content
         return roff
 
     # Italic.
     if elem.tag == "emphasis":
         content = process_children(ctx, elem)
-        roff = Roff()
-        roff.append_text(f"\\f[I]{content}\\f[R]")
+        if op.args.preserve_styles:
+            roff = Roff()
+            roff.append_text(f"\\f[I]{content}\\f[R]")
+        else:
+            roff = content
         return roff
 
     # Strikethrough
@@ -200,9 +207,14 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                 roff = Roff()
                 roff.append_text(f'\\f[I]{raw_text}\\f[R]')
                 return roff
+            # If the identifier being referenced is a known C function, then treat it as such.
+            elif raw_text in c_functions or raw_text in posix_functions:
+                roff = Roff()
+                roff.append_text(f'\\f[B]{raw_text}\\f[R](3)')
+                return roff
             else:
                 roff = Roff()
-                roff.append_text(f'\\f[V]{raw_text}\\f[R]')
+                roff.append_text(f'\\f[C]{raw_text}\\f[R]')
                 return roff
         return content
 
@@ -272,7 +284,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                     return roff
                 elif isinstance(compound, EnumElement) or isinstance(compound, Field):
                     roff = Roff()
-                    roff.append_text(f"\\f[I]{compound.name}\\f[R]")
+                    roff.append_text(f"\\f[B]{compound.name}\\f[R]")
                     if ctx.active_compound is not None:
                         ctx.active_compound.add_referenced(compound.parent)
                     return roff
