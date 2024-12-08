@@ -936,8 +936,8 @@ def main(doxyfile: str, arguments: Arguments) -> int:
     version = tuple(map(lambda x: int(x), components))
     # Doxygen 1.9.2 began writing out "doxyfile.xml" which contains all settings used in the Doxyfile.
     # Manos uses this file to extract information about the project, like is name and version.
-    if version < (1, 12, 0):
-        print(f"error: doxygen version 1.12.0 or newer is required, found version {raw_version}", file=op.args.stderr)
+    if version < (1, 12, 0) or version >= (1, 13, 0):
+        print(f"error: doxygen 1.12 series is required, found version {raw_version}", file=op.args.stderr)
         print("        please upgrade it https://www.doxygen.nl/", file=op.args.stderr)
         return 1
 
