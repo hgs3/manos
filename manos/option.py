@@ -26,7 +26,6 @@ class Arguments(argparse.Namespace):
         self._synopsis: List[List[str]] = []
         self.synopsis: Set[str] = set()
         self.function_parameters = False
-        self.macro_parameters = False
         self.composite_fields = False
         self.subsection_titles = False
         self.topic: Optional[str] = None

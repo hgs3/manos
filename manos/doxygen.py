@@ -36,7 +36,6 @@ class Compound:
         self.bugs: List[Roff] = []
         self.examples: List[Roff] = []
         self.deprecated: List[Roff] = []
-        self.function_params: Optional[Roff] = None
 
     def __hash__(self) -> int:
         return hash(self.id)
@@ -69,6 +68,7 @@ class Function(Compound):
         self.return_type = "void"
         self.parameters: List[Function.Parameter] = []
         self.description_return: Optional[Roff] = None
+        self.function_params: Optional[Roff] = None
 
     class Parameter:
         def __init__(self, type: str, name: Optional[str] = None) -> None:
@@ -95,8 +95,9 @@ class Define(Compound):
         super().__init__(id, group_id)
         self.function_like = False
         self.initializer: Optional[str] = None
-        self.parameters: List[Function.Parameter] = []
+        self.parameters: List[Define.Parameter] = []
         self.description_return: Optional[Roff] = None
+        self.function_params: Optional[Roff] = None
 
     class Parameter:
         def __init__(self, name: str) -> None:
@@ -222,7 +223,8 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                 content.append_macro("TP")
                 content.append_text(", ".join(params) + "\n")
                 content.append_text(str(process_as_roff(ctx, parameteritem.find("parameterdescription"))))
-            ctx.active_compound.function_params = content
+            if isinstance(ctx.active_compound, Function) or isinstance(ctx.active_compound, Define):
+                ctx.active_compound.function_params = content
         elif kind == "retval":
             content = Roff()
             for parameteritem in elem.findall("parameteritem"):
@@ -254,12 +256,14 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                 if isinstance(compound, Function) or isinstance(compound, CompositeType) or isinstance(compound, Enum) or isinstance(compound, Typedef) or isinstance(compound, Define):
                     roff = Roff()
                     roff.append_text(f"\\f[B]{compound.name}\\f[R](3)")
-                    ctx.active_compound.referenced_compounds.add(compound)
+                    if ctx.active_compound is not None:
+                        ctx.active_compound.referenced_compounds.add(compound)
                     return roff
                 elif isinstance(compound, EnumElement) or isinstance(compound, Field):
                     roff = Roff()
                     roff.append_text(f"\\f[I]{compound.name}\\f[R]")
-                    ctx.active_compound.referenced_compounds.add(compound.parent)
+                    if ctx.active_compound is not None:
+                        ctx.active_compound.referenced_compounds.add(compound.parent)
                     return roff
         return content
 
@@ -372,7 +376,8 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
             print("warning: excluding admonition from generated documentation", file=args.stdout)
             return Roff()
         elif kind in ["author", "authors"]:
-            ctx.active_compound.authors.append(process_children(ctx, elem))
+            if ctx.active_compound is not None:
+                ctx.active_compound.authors.append(process_children(ctx, elem))
             return Roff()
         else:
             raise Exception("unknown simplesect kind", kind)
@@ -384,11 +389,13 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
             if title_xml.text == "Bug":
                 description_xml = elem.find("xrefdescription")
                 assert description_xml is not None
-                ctx.active_compound.bugs.append(process_children(ctx, description_xml))
+                if ctx.active_compound is not None:
+                    ctx.active_compound.bugs.append(process_children(ctx, description_xml))
             elif title_xml.text == "Deprecated":
                 description_xml = elem.find("xrefdescription")
                 assert description_xml is not None
-                ctx.active_compound.deprecated.append(process_children(ctx, description_xml))
+                if ctx.active_compound is not None:
+                    ctx.active_compound.deprecated.append(process_children(ctx, description_xml))
             else:
                 print("warning: unsupported xrefsect: {0}".format(title_xml.text), file=args.stdout)
         return Roff()

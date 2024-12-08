@@ -67,7 +67,7 @@ class Roff:
         roff.entries.append(Macro(name, argument))
         self.append_roff(roff)
 
-    def __deepcopy__(self, memo: Dict[int, Any] = None) -> 'Roff':
+    def __deepcopy__(self, memo: Dict[int, Any]) -> 'Roff':
         copy = Roff()
         for entry in self.entries:
             if isinstance(entry, Macro):

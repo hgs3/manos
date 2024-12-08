@@ -28,7 +28,7 @@ import copy
 import re
 
 from .option import args, Arguments
-from .roff import Roff
+from .roff import Roff, Macro
 from . import doxygen as du
 
 def lowerify(text: str) -> str:
@@ -137,7 +137,11 @@ def generate_boilerplate(roff: Roff, compound: du.Compound) -> None:
 def generate_composite(header: du.Header, composite: du.CompositeType) -> None:
     roff = Roff()
     roff.append_macro("SH", "NAME")
-    roff.append_text(f'{composite.name} \\- {briefify(composite.brief)}')
+
+    if composite.brief is not None:
+        roff.append_text(f'{composite.name} \\- {briefify(composite.brief)}')
+    else:
+        roff.append_text(f'{composite.name}')
 
     if du.state.project_brief is not None:
         roff.append_macro('SH', 'LIBRARY')
@@ -172,7 +176,7 @@ def generate_composite(header: du.Header, composite: du.CompositeType) -> None:
                 # Change each .PP macro into an .IP macro so it's indented under the .TP macro.
                 desc = copy.deepcopy(field.description)
                 for entry in desc.entries:
-                    if isinstance(entry, du.Macro):
+                    if isinstance(entry, Macro):
                         if entry.command == "PP":
                             entry.command = "IP"
                 roff.append_roff(desc)
@@ -185,7 +189,11 @@ def generate_composite(header: du.Header, composite: du.CompositeType) -> None:
 def generate_enum(header: du.Header, enum: du.Enum) -> None:
     roff = Roff()
     roff.append_macro("SH", "NAME")
-    roff.append_text(f'{enum.name} \\- {briefify(enum.brief)}')
+
+    if enum.brief is not None:
+        roff.append_text(f'{enum.name} \\- {briefify(enum.brief)}')
+    else:
+        roff.append_text(f'{enum.name}')
 
     if du.state.project_brief is not None:
         roff.append_macro('SH', 'LIBRARY')
@@ -215,7 +223,7 @@ def generate_enum(header: du.Header, enum: du.Enum) -> None:
             # Change each .PP macro into an .IP macro so it's indented under the .TP macro.
             desc = copy.deepcopy(elem.description)
             for entry in desc.entries:
-                if isinstance(entry, du.Macro):
+                if isinstance(entry, Macro):
                     if entry.command == "PP":
                         entry.command = "IP"
             roff.append_roff(desc)
@@ -228,7 +236,11 @@ def generate_enum(header: du.Header, enum: du.Enum) -> None:
 def generate_variable(header: du.Header, variable: du.Variable) -> None:
     roff = Roff()
     roff.append_macro("SH", "NAME")
-    roff.append_text(f'{variable.name} \\- {briefify(variable.brief)}')
+
+    if variable.brief is not None:
+        roff.append_text(f'{variable.name} \\- {briefify(variable.brief)}')
+    else:
+        roff.append_text(f'{variable.name}')
 
     if du.state.project_brief is not None:
         roff.append_macro('SH', 'LIBRARY')
@@ -247,8 +259,12 @@ def generate_variable(header: du.Header, variable: du.Variable) -> None:
     roff.append_macro('BR', decl)
     roff.append_macro('fi')
 
-    roff.append_macro('SH', 'DESCRIPTION')
-    roff.append_roff(variable.description)
+    if variable.description is not None:
+        roff.append_macro('SH', 'DESCRIPTION')
+        roff.append_roff(variable.description)
+    elif variable.brief is not None:
+        roff.append_macro('SH', 'DESCRIPTION')
+        roff.append_text(variable.brief)
 
     # Write the file.
     generate_boilerplate(roff, variable)
@@ -256,7 +272,11 @@ def generate_variable(header: du.Header, variable: du.Variable) -> None:
 def generate_define(header: du.Header, define: du.Define) -> None:
     roff = Roff()
     roff.append_macro("SH", "NAME")
-    roff.append_text(f'{define.name} \\- {briefify(define.brief)}')
+
+    if define.brief is not None:
+        roff.append_text(f'{define.name} \\- {briefify(define.brief)}')
+    else:
+        roff.append_text(f'{define.name}')
 
     if du.state.project_brief is not None:
         roff.append_macro('SH', 'LIBRARY')
@@ -290,7 +310,7 @@ def generate_define(header: du.Header, define: du.Define) -> None:
         roff.append_macro('SH', 'DESCRIPTION')
         roff.append_text(define.brief)
 
-    if define.function_params is not None and args.macro_parameters is True:
+    if define.function_params is not None and args.function_parameters is True:
         roff.append_macro('SH', 'PARAMETERS')
         roff.append_roff(define.function_params)
 
@@ -304,7 +324,11 @@ def generate_define(header: du.Header, define: du.Define) -> None:
 def generate_function(header: du.Header, func: du.Function) -> None:
     roff = Roff()
     roff.append_macro("SH", "NAME")
-    roff.append_text(f'{func.name} \\- {briefify(func.brief)}')
+
+    if func.brief is not None:
+        roff.append_text(f'{func.name} \\- {briefify(func.brief)}')
+    else:
+        roff.append_text(f'{func.name}')
 
     if du.state.project_brief is not None:
         roff.append_macro('SH', 'LIBRARY')
@@ -358,12 +382,12 @@ def generate_header_compounds(compounds: List[du.Compound]) -> Roff:
     if len(compounds) == 0:
         return Roff()
 
-    functions: List[du.Function] = []
-    defines: List[du.Function] = []
-    enums: List[du.Enum] = []
-    structs: List[du.CompositeType] = []
-    unions: List[du.CompositeType] = []
-    variables: List[du.Variable] = []
+    variables: List[du.Compound] = []
+    functions: List[du.Compound] = []
+    defines: List[du.Compound] = []
+    structs: List[du.Compound] = []
+    unions: List[du.Compound] = []
+    enums: List[du.Compound] = []
 
     for compound in compounds:
         if isinstance(compound, du.Function):
@@ -380,7 +404,7 @@ def generate_header_compounds(compounds: List[du.Compound]) -> Roff:
         elif isinstance(compound, du.Variable):
             variables.append(compound)
 
-    tables: List[Tuple[str,du.Compound]] = [
+    tables: List[Tuple[str,List[du.Compound]]] = [
         ("Functions", functions),
         ("Defines", defines),
         ("Enumerations", enums),
@@ -410,6 +434,7 @@ def generate_header_compounds(compounds: List[du.Compound]) -> Roff:
                 emitted = True
         roff.append_macro('TE')
     else:
+        # TODO: Provide a command-line option for toggling the display of compounds.
         for table, compounds in tables:
             if len(compounds) > 0:
                 roff.append_macro('PP')
@@ -475,10 +500,10 @@ def generate_header(header: du.Header) -> None:
     roff.append_roff(generate_header_compounds(globals))
 
     # Emit group documentation and their compounds.
-    groups = [None] * len(locales)
+    groups: List[Roff] = [Roff()] * len(locales)
     for group_id, compounds in locales.items():
         group = du.state.compounds[group_id]
-        group_roff = du.Roff()
+        group_roff = Roff()
         group_roff.append_macro('SS', group.name)
         if group.description is not None:
             group_roff.append_roff(group.description)
@@ -489,8 +514,8 @@ def generate_header(header: du.Header) -> None:
         groups[du.state.groups.index(group_id)] = group_roff
 
     # Emit the sorted groups.
-    for group in groups:
-        roff.append_roff(group)
+    for group_roff in groups:
+        roff.append_roff(group_roff)
 
     # Write the file.
     generate_boilerplate(roff, header)
@@ -898,10 +923,9 @@ def parse_args(arguments: Optional[List[str]] = None) -> int:
                             "This option may be specified one or more times with a different TYPE.")
 
     group = parser.add_argument_group()
-    group.add_argument("--function-params", action="store_true", dest="function_parameters", help="include function \\param documentation in the functions man page")
-    group.add_argument("--macro-params", action="store_true", dest="macro_parameters", help="include macro \\param documentation when documenting macros")
-    group.add_argument("--composite-fields", action="store_true", dest="composite_fields", help="include documentation for struct and union fields when documenting them")
-    group.add_argument("--subsection-titles", action="store_true", dest="subsection_titles", help="include subsection titles in detailed descriptions")
+    group.add_argument("--with-parameters", action="store_true", dest="function_parameters", help="include PARAMS section in function and macro documentation")
+    group.add_argument("--with-fields", action="store_true", dest="composite_fields", help="include FIELDS section in structure and union documentation")
+    group.add_argument("--with-subsections", action="store_true", dest="subsection_titles", help="include subsection titles in detailed descriptions")
 
     group = parser.add_argument_group()
     group.add_argument("--topic", type=str, dest="topic", help="text positioned at the top of the man page; defaults to PROJECT_NAME in the Doxygen config", metavar="TEXT")
