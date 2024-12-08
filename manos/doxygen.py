@@ -80,9 +80,10 @@ class Function(Compound):
         self.function_params: Optional[Roff] = None
 
     class Parameter:
-        def __init__(self, type: str, name: Optional[str] = None) -> None:
-            self.type = type
-            self.name = name
+        def __init__(self) -> None:
+            self.type = 'void'
+            self.name: Optional[str] = None
+            self.array: Optional[str] = None
             self.description: Optional[str] = None
 
 class Enum(Compound):

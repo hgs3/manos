@@ -133,8 +133,15 @@ def generate_boilerplate(roff: Roff, compound: du.Compound) -> None:
             else:
                 trailing = ''
             roff.append_macro('BR', f'{referenced_compound.name} (3){trailing}')
+ 
+    # Lowercase the man page name.
+    outname = compound.name.lower()
 
-    file = open(output_path(f"{compound.name.lower()}.3"), "w", encoding="utf-8")
+    # If the compound is a header file, then truncate its extension.
+    if isinstance(compound, du.Header):
+        outname = os.path.splitext(outname)[0]
+
+    file = open(output_path(f"{outname}.3"), "w", encoding="utf-8")
     if op.args.preamble is not None:
         file.write(op.args.preamble)
     file.write(heading())
@@ -360,13 +367,15 @@ def generate_function(func: du.Function) -> None:
     signature += f'{func.name}('
     for index, param in enumerate(func.parameters):
         signature += param.type
-        if param.name is not None:
+        if param.name is not None or param.array is not None:
             # If the parameter type ends with an astrisk, that means it's pointer type
             # and there should be no whitespace between it and the parameter name.
-            if not param.type.endswith("*"):
+            if not signature.endswith("*"):
                 signature += " "
-            # Emit the name of the paramter.
+        if param.name is not None:
             signature += f'" {param.name} "'
+        if param.array is not None:
+            signature += param.array
         # Add a comma between each parameter.
         if index < len(func.parameters) - 1:
             signature += ', '
@@ -603,12 +612,13 @@ def preparse_xml(filename: str) -> None:
                         function.return_type = du.process_text(memberdef.find("type"))
                         function.header = name_xml.text
                         for param_xml in memberdef.findall("param"):
-                            param_type = du.process_text(param_xml.find("type"))
                             param_name_xml = param_xml.find("declname")
-                            if param_name_xml is not None:
-                                function.parameters.append(du.Function.Parameter(param_type, param_name_xml.text))
-                            else:
-                                function.parameters.append(du.Function.Parameter(param_type))
+                            param_array_xml = param_xml.find("array")
+                            param = du.Function.Parameter()
+                            param.type = du.process_text(param_xml.find("type"))
+                            param.name = du.process_text(param_name_xml) if param_name_xml is not None else None
+                            param.array = du.process_text(param_array_xml) if param_array_xml is not None else None
+                            function.parameters.append(param)
                         du.state.compounds[id] = function
                         header.compounds.add(function)
                     elif kind == "typedef":
@@ -681,8 +691,7 @@ def preparse_xml(filename: str) -> None:
     elif kind == "example":
         location_xml = element.find("location")
         description_xml = element.find("detaileddescription")
-        if location_xml is not None \
-            and description_xml is not None:
+        if location_xml is not None and description_xml is not None:
             file_xml = location_xml.get("file")
             if file_xml is not None:
                 if file_xml in du.state.examples:
