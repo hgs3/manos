@@ -47,6 +47,17 @@ class Roff:
         self.entries += other.entries
 
     def append_text(self, other: str) -> None:
+        # Special case: if the previous entry was a .UE (end URL) macro and the text
+        # being added is a sentence ending punctuator, then there should be no space
+        # between the URL link and the punctuator. Unfortunatly, if we add the punctuator
+        # to a new line (which is what would happen without this special logic), then the
+        # punctuator will be sperated by a space.
+        if other.startswith(".") or other.startswith("!") or other.startswith("?") or other.startswith(","):
+            if len(self.entries) > 0:
+                macro = self.entries[-1]
+                if isinstance(macro, Macro) and macro.command == "UE":
+                    macro.argument = other[0] # Move the punctuation to the macro.
+                    other = other[1:] # Trim the punctuator form the text.
         # Special case: if the previous entry is a macro and the text being added begins
         # with a dot, then the implementation will place said new text on its own line.
         # This is a problem because that new line begins with dot and therefore Roff
