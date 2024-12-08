@@ -1,0 +1,16 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+Person
+.SH SYNOPSIS
+.nf
+.B #include <None>
+.PP
+union Person {
+    int age;
+    union Height height;
+    char fullname_delimited_by_spaces[64];
+    int age;
+    union Height height;
+    char fullname_delimited_by_spaces[64];
+};
+.fi

@@ -1,0 +1,12 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+scratch_buffer \- this variable has an array portion associated with it
+.SH SYNOPSIS
+.nf
+.B #include <variables.h>
+.PP
+char scratch_buffer[64];
+.fi
+.SH DESCRIPTION
+It is intended to be a scratch buffer that anyone can write to.
+It is not thread safe.

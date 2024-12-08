@@ -1,17 +1,14 @@
 .TH "MY PROJECT" "3"
 .SH NAME
 baz \- do the thing
-.\" --------------------------------------------------------------------------
 .SH SYNOPSIS
 .nf
-.B #include <functions/functions.h>
+.B #include <functions.h>
 .PP
 .BI "volatile int *baz(int *" a ", volatile int *" b ", const Bar *restrict " c ");"
 .fi
-.\" --------------------------------------------------------------------------
 .SH DESCRIPTION
 Perform a mapping of \f[I]a\f[R] and \f[I]b\f[R] against \f[I]c\f[R].
-.\" --------------------------------------------------------------------------
 .SH RETURN VALUE
 .TP
 Address
@@ -19,6 +16,5 @@ of the mmapping of \f[I]c\f[R].
 .TP
 NULL
 if something went wrong.
-.\" --------------------------------------------------------------------------
 .SH SEE ALSO
 .BR bar (3)

@@ -30,12 +30,21 @@ class Compound:
         self.name = "unnamed"
         self.brief: Optional[str] = None
         self.description: Optional[Roff] = None
+        self.header: Optional[str] = None
         # The following are extracted when parsing the detailed description of the compound.
-        self.referenced_compounds: OrderedSet[Compound] = OrderedSet()
         self.authors: List[Roff] = []
         self.bugs: List[Roff] = []
         self.examples: List[Roff] = []
         self.deprecated: List[Roff] = []
+        self._referenced: OrderedSet[Compound] = OrderedSet()
+
+    def add_referenced(self, other: 'Compound') -> None:
+        if self.id != other.id:
+            self._referenced.append(other)
+
+    @property
+    def referenced(self) -> OrderedSet['Compound']:
+        return self._referenced
 
     def __hash__(self) -> int:
         return hash(self.id)
@@ -258,13 +267,13 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                     roff = Roff()
                     roff.append_text(f"\\f[B]{compound.name}\\f[R](3)")
                     if ctx.active_compound is not None:
-                        ctx.active_compound.referenced_compounds.add(compound)
+                        ctx.active_compound.add_referenced(compound)
                     return roff
                 elif isinstance(compound, EnumElement) or isinstance(compound, Field):
                     roff = Roff()
                     roff.append_text(f"\\f[I]{compound.name}\\f[R]")
                     if ctx.active_compound is not None:
-                        ctx.active_compound.referenced_compounds.add(compound.parent)
+                        ctx.active_compound.add_referenced(compound.parent)
                     return roff
         return content
 

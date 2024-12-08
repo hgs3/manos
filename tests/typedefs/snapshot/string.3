@@ -1,0 +1,19 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+String
+.SH SYNOPSIS
+.nf
+.B #include <None>
+.PP
+struct String {
+    int length;
+    const char *buffer;
+    int length;
+    const char *buffer;
+};
+.fi
+.SH DESCRIPTION
+This structure is declared with a typedef.
+It's preferred to use this directly over the \f[B]ptrstring_t\f[R](3) typedef because the latter hides the pointer.
+.SH SEE ALSO
+.BR ptrstring_t (3)

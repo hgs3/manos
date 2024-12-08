@@ -1,0 +1,19 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+Variant
+.SH SYNOPSIS
+.nf
+.B #include <None>
+.PP
+union Variant {
+    int length;
+    const char *buffer;
+    int length;
+    const char *buffer;
+};
+.fi
+.SH DESCRIPTION
+This union is declared with a typedef.
+It's preferred to use this directly over the \f[B]ptrvariant_t\f[R](3) typedef because the latter hides the pointer.
+.SH SEE ALSO
+.BR ptrvariant_t (3)

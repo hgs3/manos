@@ -1,12 +1,10 @@
 .TH "MY PROJECT" "3"
 .SH NAME
 structs.h \- record tests
-.\" --------------------------------------------------------------------------
 .SH SYNOPSIS
 .nf
 .B #include <structs.h>
 .fi
-.\" --------------------------------------------------------------------------
 .SH DESCRIPTION
 In computer science, a record (also called a structure, struct, or compound data) is a basic data structure.
 Records in a database or spreadsheet are usually called "rows".
@@ -17,63 +15,3 @@ The fields of a record may also be called members, particularly in object-orient
 For example, a date could be stored as a record containing a numeric year field, a month field represented as a string, and a numeric day-of-month field.
 A personnel record might contain a name, a salary, and a rank.
 A Circle record might contain a center and a radius—in this instance, the center itself might be represented as a point record containing x and y coordinates.
-.\" -------------------------------------
-.SS The Empty structure
-An empty, do nothing structure.
-.PP
-.in +4n
-.EX
-struct Empty {
-};
-.EE
-.in
-.PP
-This structure has not contents.
-.PP
-What does it mean to be devoid of content?
-This is a philosophical question.
-.\" -------------------------------------
-.SS The Frob structure
-Structure with one field.
-.PP
-.in +4n
-.EX
-struct Frob {
-    const void *nop;
-};
-.EE
-.in
-.PP
-This structure has one field.
-It doesn't do much otherwise.
-It is generally recommended to prefer the \f[I]struct Foo\f[R] structure as it's more modern.
-.\" -------------------------------------
-.SS The Person structure
-Represents a human.
-.PP
-.in +4n
-.EX
-struct Person {
-    int age;
-    struct Height height;
-    char fullname_delimited_by_spaces[64];
-};
-.EE
-.in
-.PP
-.\" -------------------------------------
-.SS The Foo structure
-Nested structures.
-.PP
-.in +4n
-.EX
-struct Foo {
-    int ***waldo[];
-    const struct Foo::@0::Qux qux;
-    struct Foo::@0 bar;
-};
-.EE
-.in
-.PP
-This structure has substructres which define fields on their parent structure.
-This structure is better than the \f[I]struct Frob\f[R] one.

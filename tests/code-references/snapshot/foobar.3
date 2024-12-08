@@ -1,16 +1,14 @@
 .TH "MY PROJECT" "3"
 .SH NAME
 foobar \- this is a function
-.\" --------------------------------------------------------------------------
 .SH SYNOPSIS
 .nf
 .B #include <code-references.h>
 .PP
 .BI "void foobar(const struct Foo *" foo ");"
 .fi
-.\" --------------------------------------------------------------------------
 .SH DESCRIPTION
-The following is a code example that references \f[I]struct Foo\f[R] and \f[B]foobar\f[R](3).
+The following is a code example that references \f[B]Foo\f[R](3) and \f[B]foobar\f[R](3).
 This is a code blurb that referenes \f[V]Foo\f[R] and \f[V]foobar\f[R] which should NOT be linked.
 .PP
 .in +4n
@@ -21,3 +19,5 @@ void DoThing(void) {
 }
 .EE
 .in
+.SH SEE ALSO
+.BR Foo (3)

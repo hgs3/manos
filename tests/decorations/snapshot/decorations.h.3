@@ -2,20 +2,19 @@
 .TH "Foo" "3" "Bar" "Baz" "Qux"
 .SH NAME
 decorations.h \- custom header decorations
-.\" --------------------------------------------------------------------------
 .SH SYNOPSIS
 .nf
 .B #include <decorations.h>
 .fi
-.\" --------------------------------------------------------------------------
 .SH DESCRIPTION
 The man page for this header should have a custom header and footer as well as comments at the top and bottom of the man page file.
-.\" -------------------------------------
-.SS Functions
-.TP
-.BR foobar (3)
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBfoobar\fR(3);T{
 Custom function decorations.
-.\" --------------------------------------------------------------------------
-.SH SEE ALSO
-.BR foobar (3)
+T}
+.TE
 \" This appears at the bottom.

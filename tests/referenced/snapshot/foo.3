@@ -1,18 +1,15 @@
 .TH "MY PROJECT" "3"
 .SH NAME
 foo \- foo
-.\" --------------------------------------------------------------------------
 .SH SYNOPSIS
 .nf
 .B #include <referenced.h>
 .PP
 .BI "void foo(void);"
 .fi
-.\" --------------------------------------------------------------------------
 .SH DESCRIPTION
 Let's reference \f[B]bar\f[R](3).
 .PP
 Lets also reference ourselves - i.e. function \f[B]foo\f[R](3) - just to prove that circular references do not appear under the SEE ALSO section of its own man page.
-.\" --------------------------------------------------------------------------
 .SH SEE ALSO
 .BR bar (3)

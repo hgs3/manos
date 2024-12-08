@@ -1,28 +1,28 @@
 .TH "MY PROJECT" "3"
 .SH NAME
 referenced.h \- referenced functions
-.\" --------------------------------------------------------------------------
 .SH SYNOPSIS
 .nf
 .B #include <referenced.h>
 .fi
-.\" --------------------------------------------------------------------------
 .SH DESCRIPTION
 Let's reference other functions.
 Like \f[B]foo\f[R](3) and \f[B]bar\f[R](3).
-.PP
-.\" -------------------------------------
-.SS Functions
-.TP
-.BR foo (3)
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBfoo\fR(3);T{
 Foo.
-.TP
-.BR bar (3)
+T}
+\fBbar\fR(3);T{
 Bar.
-.TP
-.BR baz (3)
+T}
+\fBbaz\fR(3);T{
 Baz.
-.\" --------------------------------------------------------------------------
+T}
+.TE
 .SH SEE ALSO
 .BR foo (3),
 .BR bar (3),

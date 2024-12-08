@@ -1,107 +1,12 @@
 .TH "MY PROJECT" "3"
 .SH NAME
 unions.h \- union type tests
-.\" --------------------------------------------------------------------------
 .SH SYNOPSIS
 .nf
 .B #include <unions.h>
 .fi
-.\" --------------------------------------------------------------------------
 .SH DESCRIPTION
 In computer science, a union is a value that may have any of several representations or formats within the same position in memory; that consists of a variable that may hold such a data structure.
 Some programming languages support special data types, called union types, to describe such values and variables.
 In other words, a union type definition will specify which of a number of permitted primitive types may be stored in its instances, e.g., "float or long integer".
 In contrast with a record (or structure), which could be defined to contain both a float and an integer; in a union, there is only one value at any given time.
-.\" -------------------------------------
-.SS The Empty union
-An empty, do nothing union.
-.PP
-.in +4n
-.EX
-union Empty {
-};
-.EE
-.in
-.PP
-This union has not contents.
-.PP
-What does it mean to be devoid of content?
-This is a philosophical question.
-.PP
-The fields in the
-.I Empty
-union are as follows:
-.\" -------------------------------------
-.SS The Frob union
-union with one field.
-.PP
-.in +4n
-.EX
-union Frob {
-    const void *nop;
-};
-.EE
-.in
-.PP
-This union has one field.
-It doesn't do much otherwise.
-It is generally recommended to prefer the \f[I]union Foo\f[R] union as it's more modern.
-.PP
-The fields in the
-.I Frob
-union are as follows:
-.TP
-.I nop
-Useless field.
-.\" -------------------------------------
-.SS The Person union
-Represents a human.
-.PP
-.in +4n
-.EX
-union Person {
-    int age;
-    union Height height;
-    char fullname_delimited_by_spaces[64];
-};
-.EE
-.in
-.PP
-The fields in the
-.I Person
-union are as follows:
-.TP
-.I age
-How many years old the person is.
-.TP
-.I height
-The persons height.
-.TP
-.I fullname_delimited_by_spaces
-Full name of the person.
-.\" -------------------------------------
-.SS The Foo union
-Nested unions.
-.PP
-.in +4n
-.EX
-union Foo {
-    int ***waldo[];
-    const union Foo::@0::Qux qux;
-    struct Foo::@0 bar;
-};
-.EE
-.in
-.PP
-This union has substructres which define fields on their parent union.
-This union is better than the \f[I]union Frob\f[R] one.
-.PP
-The fields in the
-.I Foo
-union are as follows:
-.TP
-.I waldo
-Waldo field docs.
-.TP
-.I bar
-Bar field docs.

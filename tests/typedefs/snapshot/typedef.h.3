@@ -1,161 +1,22 @@
 .TH "MY PROJECT" "3"
 .SH NAME
 typedef.h \- type alias tests
-.\" --------------------------------------------------------------------------
 .SH SYNOPSIS
 .nf
 .B #include <typedef.h>
 .fi
-.\" --------------------------------------------------------------------------
 .SH DESCRIPTION
 The "typedef" keyword in the programming languages C, C++, and Objective-C is used to create an additional name (alias) for another data type.
 It is often used to simplify the syntax of declaring complex data structures consisting of struct and union types, although it is also commonly used to provide specific descriptive type names for integer data types of varying sizes.
-.\" -------------------------------------
-.SS The String structure
-Structure with typedef.
-.PP
-.in +4n
-.EX
-struct String {
-    int length;
-    const char *buffer;
-};
-.EE
-.in
-.PP
-This structure is declared with a typedef.
-It's preferred to use this directly over the \f[I]ptrstring_t\f[R] typedef because the latter hides the pointer.
-.\" -------------------------------------
-.SS The Variant union
-Union with typedef.
-.PP
-.in +4n
-.EX
-union Variant {
-    int length;
-    const char *buffer;
-};
-.EE
-.in
-.PP
-This union is declared with a typedef.
-It's preferred to use this directly over the \f[I]ptrvariant_t\f[R] typedef because the latter hides the pointer.
-.\" -------------------------------------
-.SS The frob_t enumeration
+.TS
+tab(;);
+l l.
+\fBEnumerations\fR;\fBDescription\fR
+_
+\fBfrob_t\fR(3);T{
 This is an unnamed enumeration.
-.PP
-.in +4n
-.EX
-enum frob_t {
-    FOO,
-    BAR,
-    BAZ,
-};
-.EE
-.in
-.PP
-It is anonymous but you may refer to it by the \f[I]enum frob_t\f[R] typedef alias.
-.PP
-.\" -------------------------------------
-.SS The Barracuda enumeration
+T}
+\fBBarracuda\fR(3);T{
 This is an named enumeration with an alias.
-.PP
-.in +4n
-.EX
-enum Barracuda {
-    FISH,
-    SHARK,
-    OCTOPUS,
-};
-.EE
-.in
-.PP
-This enumeration has a name and an alias associated with it.
-You can refer to it by \f[I]enum Barracuda\f[R] or by the \f[I]barracuda_t\f[R] alias.
-.PP
-.\" -------------------------------------
-.SS The handle_t type
-Unique handle identifier.
-.PP
-.in +4n
-.EX
-typedef int handle_t;
-.EE
-.in
-.PP
-Used to identify an internal resource.
-.\" -------------------------------------
-.SS The barracuda_t type
-This is an named enumeration with an alias.
-.PP
-.in +4n
-.EX
-typedef enum Barracuda barracuda_t;
-.EE
-.in
-.PP
-This enumeration has a name and an alias associated with it.
-You can refer to it by \f[I]enum Barracuda\f[R] or by the \f[I]barracuda_t\f[R] alias.
-.\" -------------------------------------
-.SS The never_t type
-Identifies nothing.
-.PP
-.in +4n
-.EX
-typedef const void ***never_t;
-.EE
-.in
-.PP
-Not used; ignore it.
-.\" -------------------------------------
-.SS The string_t type
-Structure with typedef.
-.PP
-.in +4n
-.EX
-typedef struct String string_t;
-.EE
-.in
-.PP
-This structure is declared with a typedef.
-It's preferred to use this directly over the \f[I]ptrstring_t\f[R] typedef because the latter hides the pointer.
-.\" -------------------------------------
-.SS The ptrstring_t type
-Structure pointer with typedef.
-.PP
-.in +4n
-.EX
-typedef struct string_t *ptrstring_t;
-.EE
-.in
-.PP
-A pointer to this structure declared with a typedef.
-.PP
-This is typically bad practice in real API's as it hides the pointer.
-Better to use \f[I]string_t\f[R] instead or better yet use \f[I]struct String\f[R] directly.
-.\" -------------------------------------
-.SS The variant_t type
-Union with typedef.
-.PP
-.in +4n
-.EX
-typedef union Variant variant_t;
-.EE
-.in
-.PP
-This union is declared with a typedef.
-It's preferred to use this directly over the \f[I]ptrvariant_t\f[R] typedef because the latter hides the pointer.
-.\" -------------------------------------
-.SS The ptrvariant_t type
-Union pointer with typedef.
-.PP
-.in +4n
-.EX
-typedef union variant_t *ptrvariant_t;
-.EE
-.in
-.PP
-A pointer to this union declared with a typedef.
-.PP
-This is typically bad practice in real API's as it hides the pointer.
-Better to use \f[I]variant_t\f[R] instead or better yet use \f[I]union Variant\f[R] directly.
+T}
+.TE

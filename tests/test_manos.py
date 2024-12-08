@@ -27,7 +27,7 @@ import os
 
 class Params(TypedDict, total=False):
     function_parameters: bool
-    macro_parameters: bool
+    subsections: bool
     composite_fields: bool
     topic: Optional[str]
     section: int
@@ -126,6 +126,9 @@ def test_links() -> None:
 def test_sections() -> None:
     assert_snapshot("sections")
 
+def test_sections_included() -> None:
+    assert_snapshot("sections", "snapshot-subsections", subsections=True)
+
 def test_deprecated() -> None:
     assert_snapshot("deprecated")
 
@@ -190,7 +193,7 @@ def test_preprocessor() -> None:
     assert_snapshot("preprocessor")
 
 def test_preprocessor_with_param_docs() -> None:
-    assert_snapshot("preprocessor", "snapshot-with-param-docs", macro_parameters=True)
+    assert_snapshot("preprocessor", "snapshot-with-param-docs", function_parameters=True)
 
 def test_subgroups() -> None:
     assert_snapshot("subgroups")

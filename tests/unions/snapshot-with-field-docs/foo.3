@@ -1,0 +1,38 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+Foo
+.SH SYNOPSIS
+.nf
+.B #include <None>
+.PP
+union Foo {
+    int ***waldo[];
+    const union Foo::@0::Qux qux;
+    struct Foo::@0 bar;
+    int ***waldo[];
+    const union Foo::@0::Qux qux;
+    struct Foo::@0 bar;
+};
+.fi
+.SH DESCRIPTION
+This union has substructres which define fields on their parent union.
+This union is better than the \f[B]Frob\f[R](3) one.
+.SH FIELDS
+.TP
+.BR waldo
+Waldo field docs.
+.TP
+.BR qux
+.TP
+.BR bar
+Bar field docs.
+.TP
+.BR waldo
+Waldo field docs.
+.TP
+.BR qux
+.TP
+.BR bar
+Bar field docs.
+.SH SEE ALSO
+.BR Frob (3)

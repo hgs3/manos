@@ -1,12 +1,10 @@
 .TH "MY PROJECT" "3"
 .SH NAME
 dangling-punctuation.h \- dangling punctuation test cases
-.\" --------------------------------------------------------------------------
 .SH SYNOPSIS
 .nf
 .B #include <dangling-punctuation.h>
 .fi
-.\" --------------------------------------------------------------------------
 .SH DESCRIPTION
 Link to \f[B]foobar\f[R](3).
 Lets follow it with another sentence that has a \f[B]foobar\f[R](3).
@@ -41,11 +39,14 @@ Repeated \f[B]bold bold bold\f[R] text.
 Repeated \f[I]italic italic italic\f[R] text.
 .PP
 This is the end of the documentation.
-.\" -------------------------------------
-.SS Functions
-.TP
-.BR foobar (3)
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBfoobar\fR(3);T{
 This is a function.
-.\" --------------------------------------------------------------------------
+T}
+.TE
 .SH SEE ALSO
 .BR foobar (3)

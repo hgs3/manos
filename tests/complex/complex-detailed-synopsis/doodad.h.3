@@ -1,123 +1,51 @@
 .TH "FROB" "3"
 .SH NAME
 doodad.h \- create and manipulate doodad objects
-.\" --------------------------------------------------------------------------
 .SH LIBRARY
 Create and manipulate Frobs (libfrob, -lfrob)
-.\" --------------------------------------------------------------------------
 .SH SYNOPSIS
 .nf
 .B #include <doodad.h>
-.PP
-.BI "Doodad *doodad_new(DoodadFlags " flags ");"
-.BI "void doodad_free(Doodad *" doodad ");"
-.BI "Result doodad_assemble(Doodad *" doodad ");"
-.PP
-.B struct Doodad {
-.BI "    int " gizmo ";"
-.BI "    int " gadget ";"
-.B };
-.PP
-.B enum Result {
-.B "    RESULT_OK,"
-.B "    RESULT_HALF,"
-.B "    RESULT_FAIL,"
-.B };
-.PP
-.B typedef int DoodadFlags;
-.B typedef struct Doodad Doodad;
-.PP
-.B const int DoodadFlagDefault;
-.B const int DoodadFlagAssembled;
 .fi
-.\" --------------------------------------------------------------------------
 .SH DESCRIPTION
 Doodads are little gizmos of nothingness.
-They don't do much by themselves but when combined with a \f[I]Frob\f[R] they form the building blocks of something much more complex.
-.\" -------------------------------------
-.SS The Doodad structure
-Represents a Doodad object.
-.PP
-.in +4n
-.EX
-struct Doodad {
-    int gizmo;
-    int gadget;
-};
-.EE
-.in
-.PP
-This is presented as an opaque pointer.
-.PP
-.\" -------------------------------------
-.SS The Result enumeration
-Possible Doodad assembly results.
-.PP
-.in +4n
-.EX
-enum Result {
-    RESULT_OK,
-    RESULT_HALF,
-    RESULT_FAIL,
-};
-.EE
-.in
-.PP
-.\" -------------------------------------
-.SS The DoodadFlags type
-Bitflag type.
-.PP
-.in +4n
-.EX
-typedef int DoodadFlags;
-.EE
-.in
-.PP
-.\" -------------------------------------
-.SS The Doodad type
-Represents a Doodad object.
-.PP
-.in +4n
-.EX
-typedef struct Doodad Doodad;
-.EE
-.in
-.PP
-This is presented as an opaque pointer.
-.PP
-.\" -------------------------------------
-.SS The DoodadFlagDefault variable
-The default Doodad configuration.
-.PP
-.in +4n
-.EX
-const int DoodadFlagDefault;
-.EE
-.in
-.PP
-.\" -------------------------------------
-.SS The DoodadFlagAssembled variable
-Flag indicating the Doodad should come preassembled.
-.PP
-.in +4n
-.EX
-const int DoodadFlagAssembled;
-.EE
-.in
-.PP
-.\" -------------------------------------
-.SS Functions
-.TP
-.BR doodad_new (3)
+They don't do much by themselves but when combined with a \f[B]Frob\f[R](3) they form the building blocks of something much more complex.
+.SS Doodads
+Doodads are little gizmos of nothingness.
+They don't do much by themselves but when combined with a \f[B]Frob\f[R](3) they form the building blocks of something much more complex.
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBdoodad_new\fR(3);T{
 Construct a Doodad object.
-.TP
-.BR doodad_free (3)
+T}
+\fBdoodad_free\fR(3);T{
 Free a Doodad object.
-.TP
-.BR doodad_assemble (3)
+T}
+\fBdoodad_assemble\fR(3);T{
 Assemble a Doodad object.
-.\" --------------------------------------------------------------------------
+T}
+
+.T&
+l l.
+\fBEnumerations\fR;\fBDescription\fR
+_
+\fBResult\fR(3);T{
+Possible Doodad assembly results.
+T}
+
+.T&
+l l.
+\fBVariables\fR;\fBDescription\fR
+_
+\fBDoodadFlagDefault\fR(3);T{
+The default Doodad configuration.
+T}
+\fBDoodadFlagAssembled\fR(3);T{
+Flag indicating the Doodad should come preassembled.
+T}
+.TE
 .SH SEE ALSO
-.BR doodad_new (3),
-.BR doodad_free (3),
-.BR doodad_assemble (3)
+.BR Frob (3)

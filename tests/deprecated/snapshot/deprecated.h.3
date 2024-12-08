@@ -1,26 +1,23 @@
 .TH "MY PROJECT" "3"
 .SH NAME
 deprecated.h \- no darn good, very bad header file
-.\" --------------------------------------------------------------------------
 .SH SYNOPSIS
 .nf
 .B #include <deprecated.h>
 .fi
-.\" --------------------------------------------------------------------------
 .SH DESCRIPTION
 This header file has its own DEPRECATED section.
-.\" -------------------------------------
-.SS Functions
-.TP
-.BR foo (3)
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBfoo\fR(3);T{
 An old deprecated function.
-.TP
-.BR bar (3)
+T}
+\fBbar\fR(3);T{
 The new hotness.
-.\" --------------------------------------------------------------------------
+T}
+.TE
 .SH DEPRECATION
 Do not use this header file anymore.
-.\" --------------------------------------------------------------------------
-.SH SEE ALSO
-.BR foo (3),
-.BR bar (3)

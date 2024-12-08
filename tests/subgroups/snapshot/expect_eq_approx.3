@@ -1,0 +1,11 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+expect_eq_approx \- check two floating-point numbers to determine if \f[I]X\f[R] ≈ \f[I]Y\f[R] with the specified tolerance
+.SH SYNOPSIS
+.nf
+.B #include <subgroups.h>
+.PP
+.BI "void expect_eq_approx(double " X ", double " Y ", double " T ", ...);"
+.fi
+.SH DESCRIPTION
+If \f[I]X\f[R] ≉ \f[I]Y\f[R], the test case fails.

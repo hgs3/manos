@@ -1,27 +1,27 @@
 .TH "MY PROJECT" "3"
 .SH NAME
 extra-sections.h \- extra sections of a man page
-.\" --------------------------------------------------------------------------
 .SH SYNOPSIS
 .nf
 .B #include <extra-sections.h>
 .fi
-.\" --------------------------------------------------------------------------
 .SH DESCRIPTION
 This page verifies other sections, like the AUTHORS and BUGS sections, appear in the man page where they are supposed to.
 .br
-.\" -------------------------------------
-.SS Functions
-.TP
-.BR foobar (3)
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBfoobar\fR(3);T{
 This is an awesome function.
-.\" --------------------------------------------------------------------------
+T}
+.TE
 .SH BUGS
 Not all memory is freed by the implementation; some memory must be freed by the user.
 .PP
 Floating-point numbers are truncated by the implementation using half-even rounding rules.
 This is also known as bankers rounding.
-.\" --------------------------------------------------------------------------
 .SH AUTHORS
 John Smith, Jan Doe
 .PP
@@ -30,6 +30,3 @@ Richard Roe
 Jane Roe
 .PP
 All other credit goes to Super Amazing Software, LLC. located in Silicon Valley.
-.\" --------------------------------------------------------------------------
-.SH SEE ALSO
-.BR foobar (3)

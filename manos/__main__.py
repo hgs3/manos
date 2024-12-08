@@ -99,28 +99,36 @@ def output_path(file: str) -> str:
 def generate_boilerplate(roff: Roff, compound: du.Compound) -> None:
     if len(compound.deprecated) > 0:
         roff.append_macro('SH', 'DEPRECATION')
-        for bug in compound.deprecated:
-            roff.append_roff(bug)
+        for index,bug in enumerate(compound.deprecated):
+            roff.append_roff(bug.simplify())
+            if index < len(compound.deprecated) - 1:
+                roff.append_macro('PP')
 
     if len(compound.bugs) > 0:
         roff.append_macro('SH', 'BUGS')
-        for bug in compound.bugs:
-            roff.append_roff(bug)
+        for index,bug in enumerate(compound.bugs):
+            roff.append_roff(bug.simplify())
+            if index < len(compound.bugs) - 1:
+                roff.append_macro('PP')
 
     if len(compound.examples) > 0:
         roff.append_macro('SH', 'EXAMPLES')
-        for example in compound.examples:
-            roff.append_roff(example)
+        for index,example in enumerate(compound.examples):
+            roff.append_roff(example.simplify())
+            if index < len(compound.examples) - 1:
+                roff.append_macro('PP')
 
     if len(compound.authors) > 0:
         roff.append_macro('SH', 'AUTHORS')
-        for author in compound.authors:
-            roff.append_roff(author)
+        for index,author in enumerate(compound.authors):
+            roff.append_roff(author.simplify())
+            if index < len(compound.authors) - 1:
+                roff.append_macro('PP')
 
-    if len(compound.referenced_compounds) > 0:
+    if len(compound.referenced) > 0:
         roff.append_macro('SH', 'SEE ALSO')
-        for index,referenced_compound in enumerate(compound.referenced_compounds):
-            if index < len(compound.referenced_compounds) - 1:
+        for index,referenced_compound in enumerate(compound.referenced):
+            if index < len(compound.referenced) - 1:
                 trailing = ','
             else:
                 trailing = ''
@@ -132,10 +140,11 @@ def generate_boilerplate(roff: Roff, compound: du.Compound) -> None:
     file.write(heading())
     file.write(str(roff))
     if op.args.epilogue is not None:
+        file.write("\n")
         file.write(op.args.epilogue)
     file.close()
 
-def generate_composite(header: du.Header, composite: du.CompositeType) -> None:
+def generate_composite(composite: du.CompositeType) -> None:
     roff = Roff()
     roff.append_macro("SH", "NAME")
 
@@ -149,7 +158,7 @@ def generate_composite(header: du.Header, composite: du.CompositeType) -> None:
         roff.append_text(du.state.project_brief.strip())
     roff.append_macro('SH', 'SYNOPSIS')
     roff.append_macro('nf')
-    roff.append_macro('B', f'#include <{header.name}>')
+    roff.append_macro('B', f'#include <{composite.header}>')
     roff.append_macro('PP')
     roff.append_text(f'{"struct" if composite.is_struct else "union"} {composite.name} {{\n')
     for field in composite.fields:
@@ -168,7 +177,7 @@ def generate_composite(header: du.Header, composite: du.CompositeType) -> None:
         roff.append_macro('SH', 'DESCRIPTION')
         roff.append_text(composite.brief)
 
-    if op.args.composite_fields is True:
+    if op.args.composite_fields is True and len(composite.fields) > 0:
         roff.append_macro('SH', 'FIELDS')
         for field in composite.fields:
             roff.append_macro('TP')
@@ -187,7 +196,7 @@ def generate_composite(header: du.Header, composite: du.CompositeType) -> None:
     # Write the file.
     generate_boilerplate(roff, composite)
 
-def generate_enum(header: du.Header, enum: du.Enum) -> None:
+def generate_enum(enum: du.Enum) -> None:
     roff = Roff()
     roff.append_macro("SH", "NAME")
 
@@ -201,7 +210,7 @@ def generate_enum(header: du.Header, enum: du.Enum) -> None:
         roff.append_text(du.state.project_brief.strip())
     roff.append_macro('SH', 'SYNOPSIS')
     roff.append_macro('nf')
-    roff.append_macro('B', f'#include <{header.name}>')
+    roff.append_macro('B', f'#include <{enum.header}>')
     roff.append_macro('PP')
     roff.append_text(f'enum {enum.name} {{\n')
     for elem in enum.elements:
@@ -216,25 +225,26 @@ def generate_enum(header: du.Header, enum: du.Enum) -> None:
         roff.append_macro('SH', 'DESCRIPTION')
         roff.append_text(enum.brief)
 
-    roff.append_macro('SH', 'CONSTANTS')
-    for elem in enum.elements:
-        roff.append_macro('TP')
-        roff.append_macro('BR', elem.name)
-        if elem.description is not None:
-            # Change each .PP macro into an .IP macro so it's indented under the .TP macro.
-            desc = copy.deepcopy(elem.description)
-            for entry in desc.entries:
-                if isinstance(entry, Macro):
-                    if entry.command == "PP":
-                        entry.command = "IP"
-            roff.append_roff(desc)
-        elif elem.brief is not None:
-            roff.append_text(elem.brief)
+    if len(enum.elements) > 0:
+        roff.append_macro('SH', 'CONSTANTS')
+        for elem in enum.elements:
+            roff.append_macro('TP')
+            roff.append_macro('BR', elem.name)
+            if elem.description is not None:
+                # Change each .PP macro into an .IP macro so it's indented under the .TP macro.
+                desc = copy.deepcopy(elem.description)
+                for entry in desc.entries:
+                    if isinstance(entry, Macro):
+                        if entry.command == "PP":
+                            entry.command = "IP"
+                roff.append_roff(desc)
+            elif elem.brief is not None:
+                roff.append_text(elem.brief)
 
     # Write the file.
     generate_boilerplate(roff, enum)
 
-def generate_variable(header: du.Header, variable: du.Variable) -> None:
+def generate_variable(variable: du.Variable) -> None:
     roff = Roff()
     roff.append_macro("SH", "NAME")
 
@@ -249,7 +259,7 @@ def generate_variable(header: du.Header, variable: du.Variable) -> None:
 
     roff.append_macro('SH', 'SYNOPSIS')
     roff.append_macro('nf')
-    roff.append_macro('B', f'#include <{header.name}>')
+    roff.append_macro('B', f'#include <{variable.header}>')
     roff.append_macro('PP')
     decl = variable.type
     # If the parameter type ends with an astrisk, that means it's pointer type
@@ -273,7 +283,7 @@ def generate_variable(header: du.Header, variable: du.Variable) -> None:
     # Write the file.
     generate_boilerplate(roff, variable)
 
-def generate_define(header: du.Header, define: du.Define) -> None:
+def generate_define(define: du.Define) -> None:
     roff = Roff()
     roff.append_macro("SH", "NAME")
 
@@ -288,7 +298,7 @@ def generate_define(header: du.Header, define: du.Define) -> None:
 
     roff.append_macro('SH', 'SYNOPSIS')
     roff.append_macro('nf')
-    roff.append_macro('B', f'#include <{header.name}>')
+    roff.append_macro('B', f'#include <{define.header}>')
     roff.append_macro('PP')
     if define.function_like:
         signature = f'"#define {define.name}('
@@ -325,7 +335,7 @@ def generate_define(header: du.Header, define: du.Define) -> None:
     # Write the file.
     generate_boilerplate(roff, define)
 
-def generate_function(header: du.Header, func: du.Function) -> None:
+def generate_function(func: du.Function) -> None:
     roff = Roff()
     roff.append_macro("SH", "NAME")
 
@@ -340,7 +350,7 @@ def generate_function(header: du.Header, func: du.Function) -> None:
 
     roff.append_macro('SH', 'SYNOPSIS')
     roff.append_macro('nf')
-    roff.append_macro('B', f'#include <{header.name}>')
+    roff.append_macro('B', f'#include <{func.header}>')
     roff.append_macro('PP')
     signature = f'"{func.return_type}'
     # If the return type ends with an astrisk, then that means it's a pointer type
@@ -451,19 +461,6 @@ def generate_header_compounds(compounds: List[du.Compound]) -> Roff:
     return roff
 
 def generate_header(header: du.Header) -> None:
-    # Generate pages for all compounds referenced by this header.
-    for compound in header.compounds:
-        if isinstance(compound, du.Function):
-            generate_function(header, compound)
-        elif isinstance(compound, du.CompositeType):
-            generate_composite(header, compound)
-        elif isinstance(compound, du.Enum):
-            generate_enum(header, compound)
-        elif isinstance(compound, du.Define):
-            generate_define(header, compound)
-        elif isinstance(compound, du.Variable):
-            generate_variable(header, compound)
-
     roff = Roff()
     roff.append_macro("SH", "NAME")
     if header.brief is not None:
@@ -604,6 +601,7 @@ def preparse_xml(filename: str) -> None:
                         function.name = du.process_text(memberdef.find("name"))
                         function.brief = du.process_brief(memberdef.find("briefdescription"))
                         function.return_type = du.process_text(memberdef.find("type"))
+                        function.header = name_xml.text
                         for param_xml in memberdef.findall("param"):
                             param_type = du.process_text(param_xml.find("type"))
                             param_name_xml = param_xml.find("declname")
@@ -612,16 +610,21 @@ def preparse_xml(filename: str) -> None:
                             else:
                                 function.parameters.append(du.Function.Parameter(param_type))
                         du.state.compounds[id] = function
+                        header.compounds.add(function)
                     elif kind == "typedef":
                         typedef = du.Typedef(id, group_id)
                         typedef.name = du.process_text(memberdef.find("name"))
                         typedef.brief = du.process_brief(memberdef.find("briefdescription"))
+                        typedef.header = name_xml.text
                         du.state.compounds[id] = typedef
+                        header.compounds.add(typedef)
                     elif kind == "enum":
                         enum = du.Enum(id, group_id)
                         enum.name = du.process_text(memberdef.find("name"))
                         enum.brief = du.process_brief(memberdef.find("briefdescription"))
+                        enum.header = name_xml.text
                         du.state.compounds[id] = enum
+                        header.compounds.add(enum)
                         # Store all enumeration members in the same dictionary as the enumeration itself.
                         # This is done because when Doxygen references them it does so using a global identifier.
                         for enumval in memberdef.findall("enumvalue"):
@@ -636,6 +639,7 @@ def preparse_xml(filename: str) -> None:
                         define = du.Define(id, group_id)
                         define.name = du.process_text(memberdef.find("name"))
                         define.brief = du.process_brief(memberdef.find("briefdescription"))
+                        define.header = name_xml.text
                         for param_xml in memberdef.findall("param"):
                             declname_xml = param_xml.find("defname")
                             # Mark this macro as being function-like so even if it doesn't have any arguments
@@ -652,16 +656,16 @@ def preparse_xml(filename: str) -> None:
                         if initializer_xml is not None:
                             define.initializer = initializer_xml.text
                         du.state.compounds[id] = define
+                        header.compounds.add(define)
                     elif kind == "variable":
                         variable = du.Variable(id, group_id)
                         variable.brief = du.process_brief(memberdef.find("briefdescription"))
                         variable.name = du.process_text(memberdef.find("name"))
                         variable.type = du.process_text(memberdef.find("type"))
                         variable.argstring = du.process_text(memberdef.find("argsstring"))
+                        variable.header = name_xml.text
                         du.state.compounds[id] = variable
-                    # Associate the compound with the header file.
-                    if id in du.state.compounds:
-                        header.compounds.add(du.state.compounds[id])
+                        header.compounds.add(variable)
     # Track all groups and the functions that belong to them.
     # This is used to reference all other functions under each functions SEE ALSO man page section.
     elif kind == "group":
@@ -669,7 +673,8 @@ def preparse_xml(filename: str) -> None:
         assert id is not None
         group = du.Group(id)
         group.name = du.process_text(element.find("title"))
-        du.state.compounds[id] = group
+        if id not in du.state.compounds:
+            du.state.compounds[id] = group
     # Extract examples to latter include in the associated header file.
     # The examples associated with said header file will be added
     # to the EXAMPLES man page section of said header file.
@@ -845,6 +850,16 @@ def exec(doxyfile: str) -> int:
     for compound in du.state.compounds.values():
         if isinstance(compound, du.Header):
             generate_header(compound)
+        elif isinstance(compound, du.Function):
+            generate_function(compound)
+        elif isinstance(compound, du.CompositeType):
+            generate_composite(compound)
+        elif isinstance(compound, du.Enum):
+            generate_enum(compound)
+        elif isinstance(compound, du.Define):
+            generate_define(compound)
+        elif isinstance(compound, du.Variable):
+            generate_variable(compound)
 
     # Delete the temporary Doxyfile cloned that was from the original.
     if os.path.exists(doxyfile_manos):
@@ -956,7 +971,7 @@ def parse_args(arguments: Optional[List[str]] = None) -> int:
             print("error: could not find: {0}".format(op.args.preamble_file), file=op.args.stderr)
             return 1
         with open(op.args.preamble_file, "r", encoding="utf-8") as fp:
-            op.args.preamble = fp.read()
+            op.args.preamble = fp.read().strip()
 
     # Get the epilogue.
     if op.args.epilogue_file is not None:
@@ -964,7 +979,7 @@ def parse_args(arguments: Optional[List[str]] = None) -> int:
             print("error: could not find: {0}".format(op.args.epilogue_file), file=op.args.stderr)
             return 1
         with open(op.args.epilogue_file, "r", encoding="utf-8") as fp:
-            op.args.epilogue = fp.read()
+            op.args.epilogue = fp.read().strip()
 
     return main(op.args.doxyfile, op.args)
 

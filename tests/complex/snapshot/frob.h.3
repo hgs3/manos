@@ -1,45 +1,37 @@
 .TH "FROB" "3"
 .SH NAME
 frob.h \- create and manipulate frob objects
-.\" --------------------------------------------------------------------------
 .SH LIBRARY
 Create and manipulate Frobs (libfrob, -lfrob)
-.\" --------------------------------------------------------------------------
 .SH SYNOPSIS
 .nf
 .B #include <frob.h>
 .fi
-.\" --------------------------------------------------------------------------
 .SH DESCRIPTION
-The \f[I]Frob\f[R] objects are constructed using the \f[B]frob_new\f[R](3) function.
+The \f[B]Frob\f[R](3) objects are constructed using the \f[B]frob_new\f[R](3) function.
 Frob objects can be used to manipulate doodads which are constructed independntly using \f[B]doodad_new\f[R](3).
-Once a \f[I]Frob\f[R] is constructed you can use it to manipulate one or more \f[I]struct Doodad\f[R].
-.\" -------------------------------------
-.SS The Frob type
-Represents a Frob object.
-.PP
-.in +4n
-.EX
-typedef struct Frob Frob;
-.EE
-.in
-.PP
-This is presented as an opaque pointer.
-.PP
-.\" -------------------------------------
-.SS Functions
-.TP
-.BR frob_new (3)
+Once a \f[B]Frob\f[R](3) is constructed you can use it to manipulate one or more \f[B]Doodad\f[R](3).
+.SS Frobnicate
+The \f[B]Frob\f[R](3) objects are constructed using the \f[B]frob_new\f[R](3) function.
+Frob objects can be used to manipulate doodads which are constructed independntly using \f[B]doodad_new\f[R](3).
+Once a \f[B]Frob\f[R](3) is constructed you can use it to manipulate one or more \f[B]Doodad\f[R](3).
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBfrob_new\fR(3);T{
 Construct a Frob object.
-.TP
-.BR frob_free (3)
+T}
+\fBfrob_free\fR(3);T{
 Free a Frob object.
-.TP
-.BR frob_set_doodad (3)
+T}
+\fBfrob_set_doodad\fR(3);T{
 Associate a doodad with a frob.
-.\" --------------------------------------------------------------------------
+T}
+.TE
 .SH SEE ALSO
+.BR Frob (3),
 .BR frob_new (3),
 .BR doodad_new (3),
-.BR frob_free (3),
-.BR frob_set_doodad (3)
+.BR Doodad (3)
