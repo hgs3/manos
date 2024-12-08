@@ -7,10 +7,6 @@
  */
 
 /*! \addtogroup AssertAPI
- *  \brief Verify the expected behavior of a system.
- *
- *  Assertions are statements that check whether a particular condition holds true during the execution of tests.
- * 
  * @{
  */
 

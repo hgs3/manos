@@ -497,7 +497,11 @@ def generate_header(header: du.Header) -> None:
     locales: Dict[str, List[du.Compound]] = {}
 
     # Gather all compounds that belong to groups.
-    for compound in header.compounds:
+    for compound_id in header.compound_refs:
+        # Ignore unsupported compounds or compounds that don't get their own man pages.
+        if compound_id not in du.state.compounds:
+            continue
+        compound = du.state.compounds[compound_id]
         group_id = compound.group_id
         if group_id is None:
             globals.append(compound)
@@ -541,6 +545,91 @@ def dequote(string: str) -> str:
     if string.endswith('"'):
         string = string[:-1]
     return string
+
+def preparse_sectiondef(element: lxml.etree._Element) -> None:
+    for sectiondef in element.findall("sectiondef"):
+        for memberdef in sectiondef.findall("memberdef"):
+            # Extract the unique identifiers for this compound.
+            group_id: Optional[str] = None
+            id = memberdef.get("id")
+            assert id is not None
+            if id.startswith("group__"):
+                endpos = id.index("_1")
+                if endpos > 0:
+                    group_id = id[:endpos]
+            # Extract the location.
+            location = memberdef.find("location")
+            assert location is not None
+            location_file = location.get("file")
+            assert location_file is not None
+            # Create an object for this compound.
+            kind = memberdef.get("kind")
+            if kind == "function":
+                function = du.Function(id, group_id)
+                function.name = du.process_text(memberdef.find("name"))
+                function.brief = du.process_brief(memberdef.find("briefdescription"))
+                function.return_type = du.process_text(memberdef.find("type"))
+                function.header = location_file
+                for param_xml in memberdef.findall("param"):
+                    param_name_xml = param_xml.find("declname")
+                    param_array_xml = param_xml.find("array")
+                    param = du.Function.Parameter()
+                    param.type = du.process_text(param_xml.find("type"))
+                    param.name = du.process_text(param_name_xml) if param_name_xml is not None else None
+                    param.array = du.process_text(param_array_xml) if param_array_xml is not None else None
+                    function.parameters.append(param)
+                du.state.compounds[id] = function
+            elif kind == "typedef":
+                typedef = du.Typedef(id, group_id)
+                typedef.name = du.process_text(memberdef.find("name"))
+                typedef.brief = du.process_brief(memberdef.find("briefdescription"))
+                typedef.header = location_file
+                du.state.compounds[id] = typedef
+            elif kind == "enum":
+                enum = du.Enum(id, group_id)
+                enum.name = du.process_text(memberdef.find("name"))
+                enum.brief = du.process_brief(memberdef.find("briefdescription"))
+                enum.header = location_file
+                du.state.compounds[id] = enum
+                # Store all enumeration members in the same dictionary as the enumeration itself.
+                # This is done because when Doxygen references them it does so using a global identifier.
+                for enumval in memberdef.findall("enumvalue"):
+                    enumval_id = enumval.get("id")
+                    assert enumval_id is not None
+                    elem = du.EnumElement(enumval_id, enum)
+                    elem.name = du.process_text(enumval.find("name"))
+                    elem.brief = du.process_brief(enumval.find("briefdescription"))
+                    enum.elements.append(elem)
+                    du.state.compounds[enumval_id] = elem
+            elif kind == "define":
+                define = du.Define(id, group_id)
+                define.name = du.process_text(memberdef.find("name"))
+                define.brief = du.process_brief(memberdef.find("briefdescription"))
+                define.header = location_file
+                for param_xml in memberdef.findall("param"):
+                    declname_xml = param_xml.find("defname")
+                    # Mark this macro as being function-like so even if it doesn't have any arguments
+                    # it will still appear in the documentation with empty parentheses as parameters.
+                    define.function_like = True
+                    # For whatever reason even if a macro accepts no parameters doxygen still emits a
+                    # en empty <param> element. This should never happen when there are parameters.
+                    if declname_xml is None or declname_xml.text is None:
+                        define.parameters.clear()
+                        break
+                    define.parameters.append(du.Define.Parameter(declname_xml.text))
+                # Check if this macro defines a simple value that we can emit in the documentation.
+                initializer_xml = memberdef.find("initializer")
+                if initializer_xml is not None:
+                    define.initializer = initializer_xml.text
+                du.state.compounds[id] = define
+            elif kind == "variable":
+                variable = du.Variable(id, group_id)
+                variable.brief = du.process_brief(memberdef.find("briefdescription"))
+                variable.name = du.process_text(memberdef.find("name"))
+                variable.type = du.process_text(memberdef.find("type"))
+                variable.argstring = du.process_text(memberdef.find("argsstring"))
+                variable.header = location_file
+                du.state.compounds[id] = variable
 
 def preparse_xml(filename: str) -> None:
     tree = lxml.etree.parse(filename)
@@ -592,90 +681,17 @@ def preparse_xml(filename: str) -> None:
             header = du.Header(id)
             header.name = name_xml.text
             du.state.compounds[id] = header
-            # Parse all other definitions.
+            preparse_sectiondef(element)
+            # Know which compounds are associated with this header file.
             for sectiondef in element.findall("sectiondef"):
                 for memberdef in sectiondef.findall("memberdef"):
-                    # Extract the unique identifiers for this compound.
-                    group_id: Optional[str] = None
                     id = memberdef.get("id")
                     assert id is not None
-                    if id.startswith("group__"):
-                        endpos = id.index("_1")
-                        if endpos > 0:
-                            group_id = id[:endpos]
-                    # Create an object for this compound.
-                    kind = memberdef.get("kind")
-                    if kind == "function":
-                        function = du.Function(id, group_id)
-                        function.name = du.process_text(memberdef.find("name"))
-                        function.brief = du.process_brief(memberdef.find("briefdescription"))
-                        function.return_type = du.process_text(memberdef.find("type"))
-                        function.header = name_xml.text
-                        for param_xml in memberdef.findall("param"):
-                            param_name_xml = param_xml.find("declname")
-                            param_array_xml = param_xml.find("array")
-                            param = du.Function.Parameter()
-                            param.type = du.process_text(param_xml.find("type"))
-                            param.name = du.process_text(param_name_xml) if param_name_xml is not None else None
-                            param.array = du.process_text(param_array_xml) if param_array_xml is not None else None
-                            function.parameters.append(param)
-                        du.state.compounds[id] = function
-                        header.compounds.add(function)
-                    elif kind == "typedef":
-                        typedef = du.Typedef(id, group_id)
-                        typedef.name = du.process_text(memberdef.find("name"))
-                        typedef.brief = du.process_brief(memberdef.find("briefdescription"))
-                        typedef.header = name_xml.text
-                        du.state.compounds[id] = typedef
-                        header.compounds.add(typedef)
-                    elif kind == "enum":
-                        enum = du.Enum(id, group_id)
-                        enum.name = du.process_text(memberdef.find("name"))
-                        enum.brief = du.process_brief(memberdef.find("briefdescription"))
-                        enum.header = name_xml.text
-                        du.state.compounds[id] = enum
-                        header.compounds.add(enum)
-                        # Store all enumeration members in the same dictionary as the enumeration itself.
-                        # This is done because when Doxygen references them it does so using a global identifier.
-                        for enumval in memberdef.findall("enumvalue"):
-                            enumval_id = enumval.get("id")
-                            assert enumval_id is not None
-                            elem = du.EnumElement(enumval_id, enum)
-                            elem.name = du.process_text(enumval.find("name"))
-                            elem.brief = du.process_brief(enumval.find("briefdescription"))
-                            enum.elements.append(elem)
-                            du.state.compounds[enumval_id] = elem
-                    elif kind == "define":
-                        define = du.Define(id, group_id)
-                        define.name = du.process_text(memberdef.find("name"))
-                        define.brief = du.process_brief(memberdef.find("briefdescription"))
-                        define.header = name_xml.text
-                        for param_xml in memberdef.findall("param"):
-                            declname_xml = param_xml.find("defname")
-                            # Mark this macro as being function-like so even if it doesn't have any arguments
-                            # it will still appear in the documentation with empty parentheses as parameters.
-                            define.function_like = True
-                            # For whatever reason even if a macro accepts no parameters doxygen still emits a
-                            # en empty <param> element. This should never happen when there are parameters.
-                            if declname_xml is None or declname_xml.text is None:
-                                define.parameters.clear()
-                                break
-                            define.parameters.append(du.Define.Parameter(declname_xml.text))
-                        # Check if this macro defines a simple value that we can emit in the documentation.
-                        initializer_xml = memberdef.find("initializer")
-                        if initializer_xml is not None:
-                            define.initializer = initializer_xml.text
-                        du.state.compounds[id] = define
-                        header.compounds.add(define)
-                    elif kind == "variable":
-                        variable = du.Variable(id, group_id)
-                        variable.brief = du.process_brief(memberdef.find("briefdescription"))
-                        variable.name = du.process_text(memberdef.find("name"))
-                        variable.type = du.process_text(memberdef.find("type"))
-                        variable.argstring = du.process_text(memberdef.find("argsstring"))
-                        variable.header = name_xml.text
-                        du.state.compounds[id] = variable
-                        header.compounds.add(variable)
+                    header.compound_refs.add(id)
+                for member in sectiondef.findall("member"):
+                    refid = member.get("refid")
+                    assert refid is not None
+                    header.compound_refs.add(refid)
     # Track all groups and the functions that belong to them.
     # This is used to reference all other functions under each functions SEE ALSO man page section.
     elif kind == "group":
@@ -683,8 +699,8 @@ def preparse_xml(filename: str) -> None:
         assert id is not None
         group = du.Group(id)
         group.name = du.process_text(element.find("title"))
-        if id not in du.state.compounds:
-            du.state.compounds[id] = group
+        du.state.compounds[id] = group
+        preparse_sectiondef(element)
     # Extract examples to latter include in the associated header file.
     # The examples associated with said header file will be added
     # to the EXAMPLES man page section of said header file.
@@ -698,6 +714,24 @@ def preparse_xml(filename: str) -> None:
                     du.state.examples[file_xml].append(du.Example(description_xml))
                 else:
                     du.state.examples[file_xml] = [du.Example(description_xml)]
+
+def parse_sectiondef(element: lxml.etree._Element) -> None:
+    # Parse all other definitions.
+    for sectiondef in element.findall("sectiondef"):
+        for memberdef in sectiondef.findall("memberdef"):
+            if id := memberdef.get("id"):
+                if id in du.state.compounds:
+                    compound = du.state.compounds[id]
+                    if isinstance(compound, du.Function) or isinstance(compound, du.Typedef) or isinstance(compound, du.Define) or isinstance(compound, du.Variable):
+                        compound = du.state.compounds[id]
+                        compound.description = du.process_description(memberdef.find("detaileddescription"), compound)
+                    elif isinstance(compound, du.Enum):
+                        compound.description = du.process_description(memberdef.find("detaileddescription"), compound)
+                        # Store all enumeration members in the same dictionary as the enumeration itself.
+                        # This is done because when Doxygen references them it does so using a global identifier.
+                        for index,enumval in enumerate(memberdef.findall("enumvalue")):
+                            elem = compound.elements[index]
+                            elem.description = du.process_description(enumval.find("detaileddescription"), elem)
 
 def parse_xml(filename: str) -> None:
     tree = lxml.etree.parse(filename)
@@ -726,22 +760,7 @@ def parse_xml(filename: str) -> None:
                 header.brief = du.process_brief(element.find("briefdescription"))
                 header.description = du.process_description(element.find("detaileddescription"), header)
                 assert isinstance(header, du.Header)
-                # Parse all other definitions.
-                for sectiondef in element.findall("sectiondef"):
-                    for memberdef in sectiondef.findall("memberdef"):
-                        if id := memberdef.get("id"):
-                            if id in du.state.compounds:
-                                compound = du.state.compounds[id]
-                                if isinstance(compound, du.Function) or isinstance(compound, du.Typedef) or isinstance(compound, du.Define) or isinstance(compound, du.Variable):
-                                    compound = du.state.compounds[id]
-                                    compound.description = du.process_description(memberdef.find("detaileddescription"), compound)
-                                elif isinstance(compound, du.Enum):
-                                    compound.description = du.process_description(memberdef.find("detaileddescription"), compound)
-                                    # Store all enumeration members in the same dictionary as the enumeration itself.
-                                    # This is done because when Doxygen references them it does so using a global identifier.
-                                    for index,enumval in enumerate(memberdef.findall("enumvalue")):
-                                        elem = compound.elements[index]
-                                        elem.description = du.process_description(enumval.find("detaileddescription"), elem)
+                parse_sectiondef(element)
     # Track all groups and the functions that belong to them.
     # This is used to reference all other functions under each functions SEE ALSO man page section.
     elif kind == "group":
@@ -749,7 +768,7 @@ def parse_xml(filename: str) -> None:
             group = du.state.compounds[id]
             group.brief = du.process_brief(element.find("briefdescription"))
             group.description = du.process_description(element.find("detaileddescription"), group)
-
+            parse_sectiondef(element)
 # Sort groups and pages by the order in which they are defined.
 def parse_index_xml(xmlfile: str) -> None:
     tree = lxml.etree.parse(xmlfile)
@@ -917,9 +936,9 @@ def main(doxyfile: str, arguments: Arguments) -> int:
     version = tuple(map(lambda x: int(x), components))
     # Doxygen 1.9.2 began writing out "doxyfile.xml" which contains all settings used in the Doxyfile.
     # Manos uses this file to extract information about the project, like is name and version.
-    if version < (1, 9, 2):
-        print(f"error: doxygen version 1.9.2 or newer is required, found version {raw_version}", file=op.args.stderr)
-        print("       please upgrade it https://www.doxygen.nl/", file=op.args.stderr)
+    if version < (1, 12, 0):
+        print(f"error: doxygen version 1.12.0 or newer is required, found version {raw_version}", file=op.args.stderr)
+        print("        please upgrade it https://www.doxygen.nl/", file=op.args.stderr)
         return 1
 
     # Run the main program.

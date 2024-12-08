@@ -123,7 +123,7 @@ class Variable(Compound):
 class Header(Compound):
     def __init__(self, id: str) -> None:
         super().__init__(id)
-        self.compounds: OrderedSet[Compound] = OrderedSet()
+        self.compound_refs: OrderedSet[str] = OrderedSet()
 
 class Group(Compound):
     def __init__(self, id: str) -> None:
