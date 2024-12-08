@@ -21,7 +21,7 @@ import math
 
 from .roff import Roff, Macro, Text
 from .ordered_set import OrderedSet
-from .option import args
+from . import option as op
 
 class Compound:
     def __init__(self, id: str, group_id: Optional[str] = None) -> None:
@@ -108,6 +108,7 @@ class Variable(Compound):
     def __init__(self, id: str, group_id: Optional[str] = None) -> None:
         super().__init__(id, group_id)
         self.type = "void"
+        self.argstring = ""
 
 class Header(Compound):
     def __init__(self, id: str) -> None:
@@ -164,7 +165,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
 
     # Strikethrough
     if elem.tag == "strike":
-        print("warning: ignoring \\strike command", file=args.stdout)
+        print("warning: ignoring \\strike command", file=op.args.stdout)
         return process_children(ctx, elem)
 
     # Styling when using inline code experts, i.e. "\c foobar" or "`foobar`" in markdown syntax.
@@ -224,7 +225,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                 content.append_text(", ".join(params) + "\n")
                 content.append_text(str(process_as_roff(ctx, parameteritem.find("parameterdescription"))))
             if isinstance(ctx.active_compound, Function) or isinstance(ctx.active_compound, Define):
-                ctx.active_compound.function_params = content
+                ctx.active_compound.function_params = content.simplify()
         elif kind == "retval":
             content = Roff()
             for parameteritem in elem.findall("parameteritem"):
@@ -236,7 +237,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                 content.append_text(", ".join(retvals) + "\n")
                 content.append_text(str(process_as_roff(ctx, parameteritem.find("parameterdescription"))))
             if isinstance(ctx.active_compound, Function) or isinstance(ctx.active_compound, Define):
-                ctx.active_compound.description_return = content
+                ctx.active_compound.description_return = content.simplify()
         return Roff()
 
     # Anchor tags are meant to be linked to but have no usage in man pages.
@@ -281,13 +282,13 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
     if elem.tag.startswith("sect"):
         section_depth = int(elem.tag[4:])
         if section_depth > 1:
-            print("warning: flattening subsections", file=args.stdout)
+            print("warning: flattening subsections", file=op.args.stdout)
         title_xml = elem.find("title")
         assert title_xml is not None
         title = title_xml.text or ""
         title = title.capitalize() # Man page sections should be lowercase with the first letter uppercased.
         roff = Roff()
-        if args.subsection_titles:
+        if op.args.subsections:
             roff.append_macro("SS", title)
         roff.append_roff(process_children(ctx, elem))
         return roff
@@ -363,7 +364,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
             return roff
         elif kind == "return":
             if isinstance(ctx.active_compound, Function):
-                ctx.active_compound.description_return = process_children(ctx, elem)
+                ctx.active_compound.description_return = process_children(ctx, elem).simplify()
             return Roff()
         elif kind == "see":
             # Visit the child elements but discard the Roff result. The purpose
@@ -373,7 +374,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
             process_children(ctx, elem)
             return Roff()
         elif kind in ["since", "note", "warning", "attention"]:
-            print("warning: excluding admonition from generated documentation", file=args.stdout)
+            print("warning: excluding admonition from generated documentation", file=op.args.stdout)
             return Roff()
         elif kind in ["author", "authors"]:
             if ctx.active_compound is not None:
@@ -397,7 +398,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                 if ctx.active_compound is not None:
                     ctx.active_compound.deprecated.append(process_children(ctx, description_xml))
             else:
-                print("warning: unsupported xrefsect: {0}".format(title_xml.text), file=args.stdout)
+                print("warning: unsupported xrefsect: {0}".format(title_xml.text), file=op.args.stdout)
         return Roff()
     
     # Move to the next line.
@@ -423,7 +424,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
 
     # Ignore all other commands.
     if elem.tag in ["emoji", "table", "image", "formula"]:
-        print("warning: ignoring \\{0} command".format(elem.tag), file=args.stdout)
+        print("warning: ignoring \\{0} command".format(elem.tag), file=op.args.stdout)
         return Roff()
 
     # Misc tags: https://www.doxygen.nl/manual/htmlcmds.html

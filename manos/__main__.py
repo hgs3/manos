@@ -27,9 +27,10 @@ import datetime
 import copy
 import re
 
-from .option import args, Arguments
+from .option import Arguments
 from .roff import Roff, Macro
 from . import doxygen as du
+from . import option as op
 
 def lowerify(text: str) -> str:
     if len(text) == 0:
@@ -47,16 +48,16 @@ def heading() -> str:
     params: List[str] = []
 
     # The '.TH' macro always includes topic and section number.
-    if args.topic is not None:
-        params.append(f'"{args.topic}"')
+    if op.args.topic is not None:
+        params.append(f'"{op.args.topic}"')
     else:
         params.append(f'"{du.state.project_name.upper()}"')
-    params.append(f'"{args.section}"')
+    params.append(f'"{op.args.section}"')
 
     # Optional the '.TH' macro may include a footer-middle...
-    if args.footer_middle is not None:
-        params.append(f'"{args.footer_middle}"')
-    elif args.autofill:
+    if op.args.footer_middle is not None:
+        params.append(f'"{op.args.footer_middle}"')
+    elif op.args.autofill:
         # Compute the ordinal suffix for the day, i.e. "1st", "2nd", "3rd", etc...
         dt = datetime.date.today()
         if 11 <= (dt.day % 100) <= 13:
@@ -69,17 +70,17 @@ def heading() -> str:
         params.append("")
 
     # ... and a footer-inside.
-    if args.footer_inside is not None:
-        params.append(f'"{args.footer_inside}"')
-    elif args.autofill and du.state.project_version is not None:
+    if op.args.footer_inside is not None:
+        params.append(f'"{op.args.footer_inside}"')
+    elif op.args.autofill and du.state.project_version is not None:
         params.append(f'"{du.state.project_name} {du.state.project_version}"')
     else:
         params.append("")
 
     # There isn't a need to specify a header-middle
     # as it will be auto-provided if omitted.
-    if args.header_middle is not None:
-        params.append(f'"{args.header_middle}"')
+    if op.args.header_middle is not None:
+        params.append(f'"{op.args.header_middle}"')
     else:
         params.append("")
 
@@ -93,7 +94,7 @@ def heading() -> str:
     return th
 
 def output_path(file: str) -> str:
-    return os.path.join(args.output, file)
+    return os.path.join(op.args.output, file)
 
 def generate_boilerplate(roff: Roff, compound: du.Compound) -> None:
     if len(compound.deprecated) > 0:
@@ -126,12 +127,12 @@ def generate_boilerplate(roff: Roff, compound: du.Compound) -> None:
             roff.append_macro('BR', f'{referenced_compound.name} (3){trailing}')
 
     file = open(output_path(f"{compound.name.lower()}.3"), "w", encoding="utf-8")
-    if args.preamble is not None:
-        file.write(args.preamble)
+    if op.args.preamble is not None:
+        file.write(op.args.preamble)
     file.write(heading())
     file.write(str(roff))
-    if args.epilogue is not None:
-        file.write(args.epilogue)
+    if op.args.epilogue is not None:
+        file.write(op.args.epilogue)
     file.close()
 
 def generate_composite(header: du.Header, composite: du.CompositeType) -> None:
@@ -167,7 +168,7 @@ def generate_composite(header: du.Header, composite: du.CompositeType) -> None:
         roff.append_macro('SH', 'DESCRIPTION')
         roff.append_text(composite.brief)
 
-    if args.composite_fields is True:
+    if op.args.composite_fields is True:
         roff.append_macro('SH', 'FIELDS')
         for field in composite.fields:
             roff.append_macro('TP')
@@ -250,13 +251,16 @@ def generate_variable(header: du.Header, variable: du.Variable) -> None:
     roff.append_macro('nf')
     roff.append_macro('B', f'#include <{header.name}>')
     roff.append_macro('PP')
-    decl = f'"{variable.type}'
+    decl = variable.type
     # If the parameter type ends with an astrisk, that means it's pointer type
     # and there should be no whitespace between it and the parameter name.
-    if not variable.type.endswith("*"):
+    if not decl.endswith("*"):
         decl += " "
-    decl += f'" {variable.name} ";"'
-    roff.append_macro('BR', decl)
+    decl += variable.name
+    if variable.argstring is not None:
+        decl += variable.argstring
+    decl += ';'
+    roff.append_text(decl)
     roff.append_macro('fi')
 
     if variable.description is not None:
@@ -284,11 +288,10 @@ def generate_define(header: du.Header, define: du.Define) -> None:
 
     roff.append_macro('SH', 'SYNOPSIS')
     roff.append_macro('nf')
-    roff.append_macro('B', '#include <{header.name}>')
+    roff.append_macro('B', f'#include <{header.name}>')
     roff.append_macro('PP')
-    signature = f'"#define '
     if define.function_like:
-        signature += f'{define.name}('
+        signature = f'"#define {define.name}('
         for index, param in enumerate(define.parameters):
             # Emit the name of the paramter.
             signature += f'" {param.name} "'
@@ -296,11 +299,12 @@ def generate_define(header: du.Header, define: du.Define) -> None:
             if index < len(define.parameters) - 1:
                 signature += ', '
         signature += ');"'
+        roff.append_macro("BI", signature)
     else:
-        signature += f'{define.name}"'
+        signature = f'#define {define.name}'
         if define.initializer is not None:
             signature += f' {define.initializer}'
-    roff.append_macro("BI", signature)
+        roff.append_macro("B", signature)
     roff.append_macro('fi')
 
     if define.description is not None:
@@ -310,7 +314,7 @@ def generate_define(header: du.Header, define: du.Define) -> None:
         roff.append_macro('SH', 'DESCRIPTION')
         roff.append_text(define.brief)
 
-    if define.function_params is not None and args.function_parameters is True:
+    if define.function_params is not None and op.args.function_parameters is True:
         roff.append_macro('SH', 'PARAMETERS')
         roff.append_roff(define.function_params)
 
@@ -367,7 +371,7 @@ def generate_function(header: du.Header, func: du.Function) -> None:
         roff.append_macro('SH', 'DESCRIPTION')
         roff.append_text(func.brief)
 
-    if func.function_params is not None and args.function_parameters is True:
+    if func.function_params is not None and op.args.function_parameters is True:
         roff.append_macro('SH', 'PARAMETERS')
         roff.append_roff(func.function_params)
 
@@ -500,7 +504,7 @@ def generate_header(header: du.Header) -> None:
     roff.append_roff(generate_header_compounds(globals))
 
     # Emit group documentation and their compounds.
-    groups: List[Roff] = [Roff()] * len(locales)
+    groups: List[Tuple[int,Roff]] = []
     for group_id, compounds in locales.items():
         group = du.state.compounds[group_id]
         group_roff = Roff()
@@ -511,10 +515,13 @@ def generate_header(header: du.Header) -> None:
             group_roff.append_text(group.brief)
         group_roff.append_roff(generate_header_compounds(compounds))
         # Keep groups sorted.
-        groups[du.state.groups.index(group_id)] = group_roff
+        groups.append((du.state.groups.index(group_id), group_roff))
+
+    # Sort by group order in the Doxyfile.
+    groups = sorted(groups, key=lambda x: x[0])
 
     # Emit the sorted groups.
-    for group_roff in groups:
+    for order, group_roff in groups:
         roff.append_roff(group_roff)
 
     # Write the file.
@@ -650,6 +657,7 @@ def preparse_xml(filename: str) -> None:
                         variable.brief = du.process_brief(memberdef.find("briefdescription"))
                         variable.name = du.process_text(memberdef.find("name"))
                         variable.type = du.process_text(memberdef.find("type"))
+                        variable.argstring = du.process_text(memberdef.find("argsstring"))
                         du.state.compounds[id] = variable
                     # Associate the compound with the header file.
                     if id in du.state.compounds:
@@ -749,18 +757,18 @@ def exec(doxyfile: str) -> int:
         doxyfile_manos = os.path.join(working_dir, "Doxyfile.manos")
         shutil.copyfile(doxyfile, doxyfile_manos)
     except:
-        print("error: cannot write to the directory of the doxygen configuration file", file=args.stderr)
+        print("error: cannot write to the directory of the doxygen configuration file", file=op.args.stderr)
         return 1
 
     # Generate output directory if it doesn't exist.
-    if len(args.output) > 0:
-        if not os.path.exists(args.output):
-            os.mkdir(args.output)
+    if len(op.args.output) > 0:
+        if not os.path.exists(op.args.output):
+            os.mkdir(op.args.output)
 
     # Append additional options onto it.
     clone = open(doxyfile_manos, "a", encoding="utf-8")
     # Add user options.
-    for key, value in args.doxygen_settings:
+    for key, value in op.args.doxygen_settings:
         clone.write(f"{key} = {value}\n")
     # Disable all generators except the XML generators.
     # Man pages are created by parsing the raw data from the XML.
@@ -794,26 +802,26 @@ def exec(doxyfile: str) -> int:
     stdout = result[0].decode("utf-8")
     stderr = result[1].decode("utf-8")
     if len(stdout) > 0:
-        print(stdout, file=args.stdout)
+        print(stdout, file=op.args.stdout)
     if len(stderr) > 0:
-        print(stderr, file=args.stderr)
+        print(stderr, file=op.args.stderr)
 
     # Extract metadata from all XML files.
     xml_files = glob.glob(os.path.join(working_dir, "xml", "*.xml"))
 
     # Figure out which files to process and which to skip.
-    if args.pattern is not None:
+    if op.args.pattern is not None:
         def matches(file: str) -> bool:
             file = os.path.basename(file)
             if r.match(file) is not None:
                 return False
             return True
-        r = re.compile(args.pattern)
+        r = re.compile(op.args.pattern)
         xml_files = list(filter(matches, xml_files))
 
     # Make sure there are XML files...
     if len(xml_files) == 0:
-        print("error: no XML files match the pattern", file=args.stderr)
+        print("error: no XML files match the pattern", file=op.args.stderr)
         return 1
 
     # Extract compound order.
@@ -845,29 +853,28 @@ def exec(doxyfile: str) -> int:
 
 def main(doxyfile: str, arguments: Arguments) -> int:
     # Reset globla du.state.
-    global args
     du.state = du.State()
-    args = arguments
+    op.args = arguments
 
     # For the premable to end with a new line character.
     # This ensures the first man page macro begins on its own line.
-    if args.preamble is not None and not args.preamble.endswith("\n"):
-        args.preamble += "\n"
+    if op.args.preamble is not None and not op.args.preamble.endswith("\n"):
+        op.args.preamble += "\n"
 
     # Setup defaults.
-    if args.section < 1 or args.section > 9:
-        print("error: expected section in the inclusive range 1-9", file=args.stderr)
+    if op.args.section < 1 or op.args.section > 9:
+        print("error: expected section in the inclusive range 1-9", file=op.args.stderr)
         return 1
 
     # Check if the Doxygen configuration file exists.
     if not os.path.exists(doxyfile):
-        print("error: missing configuration file: {0}".format(doxyfile), file=args.stderr)
+        print("error: missing configuration file: {0}".format(doxyfile), file=op.args.stderr)
         return 1
 
     # Verify Doxygen is installed.
     if shutil.which("doxygen") is None:
-        print("error: could not find doxygen;", file=args.stderr)
-        print("       please install it https://www.doxygen.nl/", file=args.stderr)
+        print("error: could not find doxygen;", file=op.args.stderr)
+        print("       please install it https://www.doxygen.nl/", file=op.args.stderr)
         return 1
 
     # Verify Doxygen version.
@@ -887,8 +894,8 @@ def main(doxyfile: str, arguments: Arguments) -> int:
     # Doxygen 1.9.2 began writing out "doxyfile.xml" which contains all settings used in the Doxyfile.
     # Manos uses this file to extract information about the project, like is name and version.
     if version < (1, 9, 2):
-        print(f"error: doxygen version 1.9.2 or newer is required, found version {raw_version}", file=args.stderr)
-        print("       please upgrade it https://www.doxygen.nl/", file=args.stderr)
+        print(f"error: doxygen version 1.9.2 or newer is required, found version {raw_version}", file=op.args.stderr)
+        print("       please upgrade it https://www.doxygen.nl/", file=op.args.stderr)
         return 1
 
     # Run the main program.
@@ -925,7 +932,7 @@ def parse_args(arguments: Optional[List[str]] = None) -> int:
     group = parser.add_argument_group()
     group.add_argument("--with-parameters", action="store_true", dest="function_parameters", help="include PARAMS section in function and macro documentation")
     group.add_argument("--with-fields", action="store_true", dest="composite_fields", help="include FIELDS section in structure and union documentation")
-    group.add_argument("--with-subsections", action="store_true", dest="subsection_titles", help="include subsection titles in detailed descriptions")
+    group.add_argument("--with-subsections", action="store_true", dest="subsections", help="include subsection titles in detailed descriptions")
 
     group = parser.add_argument_group()
     group.add_argument("--topic", type=str, dest="topic", help="text positioned at the top of the man page; defaults to PROJECT_NAME in the Doxygen config", metavar="TEXT")
@@ -939,27 +946,27 @@ def parse_args(arguments: Optional[List[str]] = None) -> int:
     group.add_argument("--preamble", type=str, dest="preamble_file", help="file name to extract preamble content from", metavar="FILE")
     group.add_argument("--epilogue", type=str, dest="epilogue_file", help="file name to extract epilogue content from", metavar="FILE")
 
-    args = Arguments()
-    args = parser.parse_args(arguments, namespace=args)
-    args.finish()
+    op.args = Arguments()
+    op.args = parser.parse_args(arguments, namespace=op.args)
+    op.args.finish()
 
     # Get the preamble.
-    if args.preamble_file is not None:
-        if not os.path.exists(args.preamble_file):
-            print("error: could not find: {0}".format(args.preamble_file), file=args.stderr)
+    if op.args.preamble_file is not None:
+        if not os.path.exists(op.args.preamble_file):
+            print("error: could not find: {0}".format(op.args.preamble_file), file=op.args.stderr)
             return 1
-        with open(args.preamble_file, "r", encoding="utf-8") as fp:
-            args.preamble = fp.read()
+        with open(op.args.preamble_file, "r", encoding="utf-8") as fp:
+            op.args.preamble = fp.read()
 
     # Get the epilogue.
-    if args.epilogue_file is not None:
-        if not os.path.exists(args.epilogue_file):
-            print("error: could not find: {0}".format(args.epilogue_file), file=args.stderr)
+    if op.args.epilogue_file is not None:
+        if not os.path.exists(op.args.epilogue_file):
+            print("error: could not find: {0}".format(op.args.epilogue_file), file=op.args.stderr)
             return 1
-        with open(args.epilogue_file, "r", encoding="utf-8") as fp:
-            args.epilogue = fp.read()
+        with open(op.args.epilogue_file, "r", encoding="utf-8") as fp:
+            op.args.epilogue = fp.read()
 
-    return main(args.doxyfile, args)
+    return main(op.args.doxyfile, op.args)
 
 def start() -> None:
     sys.exit(parse_args())

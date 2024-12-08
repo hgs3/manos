@@ -27,7 +27,7 @@ class Arguments(argparse.Namespace):
         self.synopsis: Set[str] = set()
         self.function_parameters = False
         self.composite_fields = False
-        self.subsection_titles = False
+        self.subsections = False
         self.topic: Optional[str] = None
         self.section = 3
         self.include_path = "short"

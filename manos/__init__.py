@@ -24,7 +24,7 @@ def process(doxyfile: str,
             preamble: Optional[str] = None,
             epilogue: Optional[str] = None,
             function_parameters: bool = False,
-            macro_parameters: bool = False,
+            subsections: bool = False,
             composite_fields: bool = False,
             stdout: Optional[TextIO] = None,
             stderr: Optional[TextIO] = None,
@@ -43,7 +43,7 @@ def process(doxyfile: str,
     :param preamble: Content to prepend to each man page (e.g. copyright comment).
     :param epilogue: Content to append to each man page.
     :param function_parameters: Toggle \\param documentation in a functions man page.
-    :param macro_parameters: Toggle \\param documentation when documenting macros.
+    :param subsections: Toggle subsection documentation in a functions man page.
     :param composite_fields: Toggle documentation for struct and union fields.
     :param stdout: Redirect Doxygen standard output.
     :param stderr: Redirect Doxygen error output.
@@ -67,8 +67,8 @@ def process(doxyfile: str,
     This function should **not** raise any exceptions.
     """
 
-    from .__main__ import main
     from .option import Arguments
+    from .__main__ import main
     args = Arguments()
     args.output = output_dir
     args.section = section
@@ -83,7 +83,7 @@ def process(doxyfile: str,
     args.preamble = preamble
     args.epilogue = epilogue
     args.function_parameters = function_parameters
-    args.macro_parameters = macro_parameters
+    args.subsections = subsections
     args.composite_fields = composite_fields
     args.doxygen_settings = doxygen_settings
     if stdout is None:
