@@ -3,7 +3,7 @@
  *  \copydetails FrobAPI
  */
 
-#include "doodad.h"
+#include "dood.h"
 
 /*! \addtogroup FrobAPI
  *  \brief Create and manipulate frob objects.
@@ -46,8 +46,6 @@ Frob *frob_new(void);
 void frob_free(Frob *frob);
 
 /*! \brief Associate a doodad with a frob.
- *
- *  
  *
  *  \param[in] frob Frob object.
  *  \param[in] doodad Doodad object.

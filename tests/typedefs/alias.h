@@ -1,4 +1,4 @@
-/*! \file typedef.h
+/*! \file alias.h
  *  \brief Type alias tests.
  *
  *  The "typedef" keyword in the programming languages C, C++, and Objective-C is used to create an additional name (alias) for another data type.
@@ -11,6 +11,12 @@
  *  Used to identify an internal resource.
  */
 typedef int handle_t;
+
+/*! \brief Anonymous struct.
+ *
+ *  This is using the PIMPL idiom.
+ */
+typedef struct Zippy Zippy;
 
 /*! \brief This is an unnamed enumeration.
  *

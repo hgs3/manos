@@ -1,14 +1,24 @@
 .TH "MY PROJECT" "3"
 .SH NAME
-variant_t \- union with typedef
+variant_t
 .SH SYNOPSIS
 .nf
-.B #include <typedef.h>
+.B #include <None>
 .PP
-.BI "typedef union Variant variant_t;"
+.B "union variant_t {"
+.B "    int length;"
+.B "    const char *buffer;"
+.B "    int length;"
+.B "    const char *buffer;"
+.B "};"
 .fi
 .SH DESCRIPTION
+Union pointer with typedef.
+.PP
 This union is declared with a typedef.
-It's preferred to use this directly over the \f[B]ptrvariant_t\f[R](3) typedef because the latter hides the pointer.
-.SH SEE ALSO
-.BR ptrvariant_t (3)
+It's preferred to use this directly over the #ptrvariant_t typedef because the latter hides the pointer.
+.PP
+A pointer to this union declared with a typedef.
+.PP
+This is typically bad practice in real API's as it hides the pointer.
+Better to use \f[B]variant_t\f[R](3) instead or better yet use #Variant directly.

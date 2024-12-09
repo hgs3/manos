@@ -1,9 +1,9 @@
-/*! \file doodad.h
- *  \brief \copybrief DoodadAPI
- *  \copydetails DoodadAPI
+/*! \file dood.h
+ *  \brief \copybrief DoodAPI
+ *  \copydetails DoodAPI
  */
 
-/*! \addtogroup DoodadAPI
+/*! \addtogroup DoodAPI
  *  \brief Create and manipulate doodad objects.
  * 
  *  Doodads are little gizmos of nothingness.

@@ -30,6 +30,7 @@ class Compound:
         self.id = id
         self.group_id = group_id
         self.name = "unnamed"
+        self.manpage_name: Optional[str] = None
         self.brief: Optional[str] = None
         self.description: Optional[Roff] = None
         self.header: Optional[str] = None
@@ -61,6 +62,7 @@ class CompositeType(Compound):
         super().__init__(id)
         self.is_struct = is_struct
         self.fields: List[Field] = []
+        self.aliases: List[Typedef] = []
 
     @property
     def is_union(self) -> bool:
@@ -92,6 +94,7 @@ class Enum(Compound):
     def __init__(self, id: str, group_id: Optional[str] = None) -> None:
         super().__init__(id, group_id)
         self.elements: List[EnumElement] = []
+        self.aliases: List[Typedef] = []
 
 class EnumElement(Compound):
     def __init__(self, id: str, enum: Enum) -> None:
@@ -202,8 +205,8 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
             is_param = False
             if ctx.active_compound is not None:
                 if isinstance(ctx.active_compound, Function) or isinstance(ctx.active_compound, Define):
-                    for param in ctx.active_compound.parameters:
-                        if raw_text == param.name:
+                    for compound_param in ctx.active_compound.parameters:
+                        if raw_text == compound_param.name:
                             is_param = True
                             break
                 elif isinstance(ctx.active_compound, Typedef):
@@ -512,7 +515,8 @@ class State:
         self.project_brief: Optional[str] = None
         self.project_version: Optional[str] = None
         self.examples: Dict[str, List[Example]] = {}
-        self.compounds: Dict[str, Compound] = {}
-        self.groups: List[str] = []
+        self.compounds: Dict[str, Compound] = {}  # Key is Doxygen reference id
+        self.manpages: Dict[str, Compound] = {}  # Key is man page name (without extension, e.g. ".3")
+        self.group_ordering: List[str] = []
 
 state = State()

@@ -4,8 +4,8 @@
  *  This header includes the public interfaces for the frobnicate library.
  *
  *  \defgroup FrobAPI Frobnicate
- *  \defgroup DoodadAPI Doodads
+ *  \defgroup DoodAPI Doodads
  */
 
-#include "frob.h"
-#include "doodad.h"
+#include "froble.h"
+#include "dood.h"

@@ -1,14 +1,24 @@
 .TH "MY PROJECT" "3"
 .SH NAME
-string_t \- structure with typedef
+string_t
 .SH SYNOPSIS
 .nf
-.B #include <typedef.h>
+.B #include <None>
 .PP
-.BI "typedef struct String string_t;"
+.B "struct string_t {"
+.B "    int length;"
+.B "    const char *buffer;"
+.B "    int length;"
+.B "    const char *buffer;"
+.B "};"
 .fi
 .SH DESCRIPTION
+Structure pointer with typedef.
+.PP
 This structure is declared with a typedef.
-It's preferred to use this directly over the \f[B]ptrstring_t\f[R](3) typedef because the latter hides the pointer.
-.SH SEE ALSO
-.BR ptrstring_t (3)
+It's preferred to use this directly over the #ptrstring_t typedef because the latter hides the pointer.
+.PP
+A pointer to this structure declared with a typedef.
+.PP
+This is typically bad practice in real API's as it hides the pointer.
+Better to use \f[B]string_t\f[R](3) instead or better yet use #String directly.

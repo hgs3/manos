@@ -3,12 +3,21 @@
 barracuda_t \- this is an named enumeration with an alias
 .SH SYNOPSIS
 .nf
-.B #include <typedef.h>
+.B #include <alias.h>
 .PP
-.BI "typedef enum Barracuda barracuda_t;"
+.B "enum barracuda_t {"
+.B "    FISH,"
+.B "    SHARK,"
+.B "    OCTOPUS,"
+.B "};"
 .fi
 .SH DESCRIPTION
 This enumeration has a name and an alias associated with it.
-You can refer to it by \f[B]Barracuda\f[R](3) or by the \f[B]barracuda_t\f[R](3) alias.
-.SH SEE ALSO
-.BR Barracuda (3)
+You can refer to it by #Barracuda or by the \f[B]barracuda_t\f[R](3) alias.
+.SH CONSTANTS
+.TP
+.BR FISH
+.TP
+.BR SHARK
+.TP
+.BR OCTOPUS

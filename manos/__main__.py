@@ -135,14 +135,8 @@ def generate_boilerplate(roff: Roff, compound: du.Compound) -> None:
                 trailing = ''
             roff.append_macro('BR', f'{referenced_compound.name} (3){trailing}')
  
-    # Lowercase the man page name.
-    outname = compound.name.lower()
-
-    # If the compound is a header file, then truncate its extension.
-    if isinstance(compound, du.Header):
-        outname = os.path.splitext(outname)[0]
-
-    file = open(output_path(f"{outname}.3"), "w", encoding="utf-8")
+    assert compound.manpage_name is not None, "cannot emit man page for compound without a man page name"
+    file = open(output_path(f"{compound.manpage_name}.3"), "w", encoding="utf-8")
     if op.args.preamble is not None:
         file.write(op.args.preamble)
     file.write(heading())
@@ -574,7 +568,7 @@ def generate_header(header: du.Header) -> None:
             group_roff.append_text(group.brief)
         group_roff.append_roff(generate_header_compounds(compounds))
         # Keep groups sorted.
-        groups.append((du.state.groups.index(group_id), group_roff))
+        groups.append((du.state.group_ordering.index(group_id), group_roff))
 
     # Sort by group order in the Doxyfile.
     groups = sorted(groups, key=lambda x: x[0])
@@ -595,22 +589,118 @@ def dequote(string: str) -> str:
         string = string[:-1]
     return string
 
+def manpageify(compound: du.Compound) -> str:
+    # Lowercase the man page name.
+    outname = compound.name
+    # If the compound is a header file, then truncate its extension.
+    if isinstance(compound, du.Header):
+        outname = os.path.splitext(outname)[0]
+    return outname.lower()
+
+def register_compund(compound: du.Compound) -> None:
+    def typeof(compound: du.Compound) -> str:
+        if isinstance(compound, du.CompositeType):
+            if compound.is_struct:
+                return "struct"
+            else:
+                return "union"
+        elif isinstance(compound, du.Typedef):
+            return "typedef"
+        elif isinstance(compound, du.Define):
+            return "define"
+        elif isinstance(compound, du.Function):
+            return "function"
+        elif isinstance(compound, du.Enum):
+            return "enumeration"
+        elif isinstance(compound, du.Variable):
+            return "variable"
+        raise Exception("missing compound type")
+
+    if compound.manpage_name is not None:
+        if compound.manpage_name not in du.state.manpages:
+            du.state.manpages[compound.manpage_name] = compound
+        else:
+            other = du.state.manpages[compound.manpage_name]
+            print(f"error: cannot have {typeof(compound)} and {typeof(other)} man pages both named '{compound.manpage_name}.3'", file=op.args.stderr)
+            sys.exit(1)
+    du.state.compounds[compound.id] = compound
+
+def extract_group_id(id: str) -> Optional[str]:
+    if id.startswith("group__"):
+        endpos = id.index("_1")
+        if endpos > 0:
+            return id[:endpos]
+    return None
+
 def preparse_sectiondef(element: lxml.etree._Element) -> None:
     for sectiondef in element.findall("sectiondef"):
         for memberdef in sectiondef.findall("memberdef"):
             # Extract the unique identifiers for this compound.
-            group_id: Optional[str] = None
-            id = memberdef.get("id")
-            assert id is not None
-            if id.startswith("group__"):
-                endpos = id.index("_1")
-                if endpos > 0:
-                    group_id = id[:endpos]
+            id = memberdef.get("id"); assert id is not None
+            group_id = extract_group_id(id)
             # Extract the location.
-            location = memberdef.find("location")
-            assert location is not None
-            location_file = location.get("file")
-            assert location_file is not None
+            location = memberdef.find("location"); assert location is not None
+            location_file = location.get("file"); assert location_file is not None
+            # Create an object for this compound.
+            if memberdef.get("kind") == "enum":
+                enum = du.Enum(id, group_id)
+                enum.name = du.process_text(memberdef.find("name"))
+                enum.brief = du.process_brief(memberdef.find("briefdescription"), enum)
+                enum.header = location_file
+                enum.manpage_name = manpageify(enum)
+                register_compund(enum)
+                # Store all enumeration members in the same dictionary as the enumeration itself.
+                # This is done because when Doxygen references them it does so using a global identifier.
+                for enumval in memberdef.findall("enumvalue"):
+                    enumval_id = enumval.get("id")
+                    assert enumval_id is not None
+                    elem = du.EnumElement(enumval_id, enum)
+                    elem.name = du.process_text(enumval.find("name"))
+                    elem.brief = du.process_brief(enumval.find("briefdescription"), enum)
+                    enum.elements.append(elem)
+                    register_compund(elem)
+
+def preparse_xml(filename: str) -> None:
+    tree = lxml.etree.parse(filename)
+    element = tree.find("compounddef")
+    if element is None:
+        return
+    kind = element.get("kind")
+    # Only consider source files (e.g. ignore Markdown files).
+    language = element.get("language")
+    if language == "C++":
+        # Doxygen writes docs for structs and unions in their own individual .xml files.
+        if kind in ["struct", "union"]:
+            id = element.get("id")
+            assert id is not None
+            composite = du.CompositeType(id, kind == "struct")
+            composite.name = du.process_text(element.find("compoundname"))
+            composite.manpage_name = manpageify(composite)
+            for sectiondef in element.findall("sectiondef"):
+                for memberdef in sectiondef.findall("memberdef"):
+                    field_id = memberdef.get("id")
+                    assert field_id is not None
+                    field = du.Field(field_id, composite)
+                    field.type = du.process_text(memberdef.find("type"))
+                    field.name = du.process_text(memberdef.find("name"))
+                    field.argsstring = du.process_text(memberdef.find("argsstring"))
+                    field.brief = du.process_brief(memberdef.find("briefdescription"), composite)
+                    composite.fields.append(field)
+            register_compund(composite)
+        elif kind == "file":
+            preparse_sectiondef(element)
+    elif kind == "group":
+        preparse_sectiondef(element)
+
+def parse_sectiondef(element: lxml.etree._Element) -> None:
+    for sectiondef in element.findall("sectiondef"):
+        for memberdef in sectiondef.findall("memberdef"):
+            # Extract the unique identifiers for this compound.
+            id = memberdef.get("id"); assert id is not None
+            group_id = extract_group_id(id)
+            # Extract the location.
+            location = memberdef.find("location"); assert location is not None
+            location_file = location.get("file"); assert location_file is not None
             # Create an object for this compound.
             kind = memberdef.get("kind")
             if kind == "function":
@@ -618,6 +708,7 @@ def preparse_sectiondef(element: lxml.etree._Element) -> None:
                 function.name = du.process_text(memberdef.find("name"))
                 function.return_type = du.process_text(memberdef.find("type"))
                 function.header = location_file
+                function.manpage_name = manpageify(function)
                 for param_xml in memberdef.findall("param"):
                     param_name_xml = param_xml.find("declname")
                     param_array_xml = param_xml.find("array")
@@ -629,35 +720,48 @@ def preparse_sectiondef(element: lxml.etree._Element) -> None:
                 # This must parse AFTER gather the parameter names so if a paramter is referenced
                 # then it is referenced _correctly_ as a parameter and not as inline code.
                 function.brief = du.process_brief(memberdef.find("briefdescription"), function)
-                du.state.compounds[id] = function
+                register_compund(function)
             elif kind == "typedef":
+                def find_aliased_compound(elem: lxml.etree._Element) -> Optional[str]:
+                    if elem.tag == "ref":
+                        refid = elem.get("refid")
+                        assert refid is not None
+                        return refid
+                    for child in elem:
+                        ref = find_aliased_compound(child)
+                        if ref is not None:
+                            return ref
+                    return None
+
                 typedef = du.Typedef(id, group_id)
                 typedef.name = du.process_text(memberdef.find("name"))
                 typedef.brief = du.process_brief(memberdef.find("briefdescription"), typedef)
                 typedef.type = du.process_text(memberdef.find("type"))
                 typedef.argsstring = du.process_text(memberdef.find("argsstring"))
                 typedef.header = location_file
-                du.state.compounds[id] = typedef
-            elif kind == "enum":
-                enum = du.Enum(id, group_id)
-                enum.name = du.process_text(memberdef.find("name"))
-                enum.brief = du.process_brief(memberdef.find("briefdescription"), enum)
-                enum.header = location_file
-                du.state.compounds[id] = enum
-                # Store all enumeration members in the same dictionary as the enumeration itself.
-                # This is done because when Doxygen references them it does so using a global identifier.
-                for enumval in memberdef.findall("enumvalue"):
-                    enumval_id = enumval.get("id")
-                    assert enumval_id is not None
-                    elem = du.EnumElement(enumval_id, enum)
-                    elem.name = du.process_text(enumval.find("name"))
-                    elem.brief = du.process_brief(enumval.find("briefdescription"), enum)
-                    enum.elements.append(elem)
-                    du.state.compounds[enumval_id] = elem
+                typedef.manpage_name = manpageify(typedef)
+
+                # Typedefs that reference a struct, union, or enum and have the same name as said
+                # type should be emitted as part of that types man page. This is so two different
+                # man pages (one for the type, one for the typedef) are not emitted thereby
+                # overwriting each other (last one written would win).
+                type_xml = memberdef.find("type")
+                if type_xml is not None:
+                    ref_id = find_aliased_compound(type_xml)
+                    if ref_id in du.state.compounds:
+                        referenced_compound = du.state.compounds[ref_id]
+                        if isinstance(referenced_compound, du.Enum) or isinstance(referenced_compound, du.CompositeType):
+                            if referenced_compound.name == typedef.name:
+                                referenced_compound.aliases.append(typedef)
+                                du.state.compounds[typedef.id] = referenced_compound
+                                continue
+
+                register_compund(typedef)
             elif kind == "define":
                 define = du.Define(id, group_id)
                 define.name = du.process_text(memberdef.find("name"))
                 define.header = location_file
+                define.manpage_name = manpageify(define)
                 for param_xml in memberdef.findall("param"):
                     declname_xml = param_xml.find("defname")
                     # Mark this macro as being function-like so even if it doesn't have any arguments
@@ -676,7 +780,7 @@ def preparse_sectiondef(element: lxml.etree._Element) -> None:
                 # This must parse AFTER gather the parameter names so if a paramter is referenced
                 # then it is referenced _correctly_ as a parameter and not as inline code.
                 define.brief = du.process_brief(memberdef.find("briefdescription"), define)
-                du.state.compounds[id] = define
+                register_compund(define)
             elif kind == "variable":
                 variable = du.Variable(id, group_id)
                 variable.brief = du.process_brief(memberdef.find("briefdescription"), variable)
@@ -684,9 +788,10 @@ def preparse_sectiondef(element: lxml.etree._Element) -> None:
                 variable.type = du.process_text(memberdef.find("type"))
                 variable.argsstring = du.process_text(memberdef.find("argsstring"))
                 variable.header = location_file
-                du.state.compounds[id] = variable
+                variable.manpage_name = manpageify(variable)
+                register_compund(variable)
 
-def preparse_xml(filename: str) -> None:
+def parse_xml(filename: str) -> None:
     tree = lxml.etree.parse(filename)
     if tree.getroot().tag == "doxyfile":
         project_name_xml = cast(List[lxml.etree._Element], tree.xpath("//option[@id='PROJECT_NAME']/value"))
@@ -708,49 +813,29 @@ def preparse_xml(filename: str) -> None:
     kind = element.get("kind")
     # Only consider source files (e.g. ignore Markdown files).
     language = element.get("language")
-    if language == "C++":
-        # Doxygen writes docs for structs and unions in their own individual .xml files.
-        if kind in ["struct", "union"]:
-            id = element.get("id")
-            assert id is not None
-            composite = du.CompositeType(id, kind == "struct")
-            composite.name = du.process_text(element.find("compoundname"))
-            for sectiondef in element.findall("sectiondef"):
-                for memberdef in sectiondef.findall("memberdef"):
-                    field_id = memberdef.get("id")
-                    assert field_id is not None
-                    field = du.Field(field_id, composite)
-                    field.type = du.process_text(memberdef.find("type"))
-                    field.name = du.process_text(memberdef.find("name"))
-                    field.argsstring = du.process_text(memberdef.find("argsstring"))
-                    field.brief = du.process_brief(memberdef.find("briefdescription"), composite)
-                    composite.fields.append(field)
-            du.state.compounds[id] = composite
-        elif kind == "file":
-            # Create a compound for the file.
-            id = element.get("id")
-            assert id is not None
-            name_xml = element.find("compoundname")
-            assert name_xml is not None
-            assert name_xml.text is not None
-            # If this file is NOT a header file, then ignore it;
-            # files like C files and DOX files should be ignored.
-            if not name_xml.text.lower().endswith(".h"):
-                return
-            header = du.Header(id)
-            header.name = name_xml.text
-            du.state.compounds[id] = header
-            preparse_sectiondef(element)
-            # Know which compounds are associated with this header file.
-            for sectiondef in element.findall("sectiondef"):
-                for memberdef in sectiondef.findall("memberdef"):
-                    id = memberdef.get("id")
-                    assert id is not None
-                    header.compound_refs.add(id)
-                for member in sectiondef.findall("member"):
-                    refid = member.get("refid")
-                    assert refid is not None
-                    header.compound_refs.add(refid)
+    if language == "C++" and kind == "file":
+        # Create a compound for the file.
+        id = element.get("id"); assert id is not None
+        name_xml = element.find("compoundname"); assert name_xml is not None and name_xml.text is not None
+        # If this file is NOT a header file, then ignore it;
+        # files like C files and DOX files should be ignored.
+        if not name_xml.text.lower().endswith(".h"):
+            return
+        header = du.Header(id)
+        header.name = name_xml.text
+        header.manpage_name = manpageify(header)
+        register_compund(header)
+        parse_sectiondef(element)
+        # Know which compounds are associated with this header file.
+        for sectiondef in element.findall("sectiondef"):
+            for memberdef in sectiondef.findall("memberdef"):
+                id = memberdef.get("id")
+                assert id is not None
+                header.compound_refs.add(id)
+            for member in sectiondef.findall("member"):
+                refid = member.get("refid")
+                assert refid is not None
+                header.compound_refs.add(refid)
     # Track all groups and the functions that belong to them.
     # This is used to reference all other functions under each functions SEE ALSO man page section.
     elif kind == "group":
@@ -758,8 +843,8 @@ def preparse_xml(filename: str) -> None:
         assert id is not None
         group = du.Group(id)
         group.name = du.process_text(element.find("title"))
-        du.state.compounds[id] = group
-        preparse_sectiondef(element)
+        register_compund(group)
+        parse_sectiondef(element)
     # Extract examples to latter include in the associated header file.
     # The examples associated with said header file will be added
     # to the EXAMPLES man page section of said header file.
@@ -774,7 +859,7 @@ def preparse_xml(filename: str) -> None:
                 else:
                     du.state.examples[file_xml] = [du.Example(description_xml)]
 
-def parse_sectiondef(element: lxml.etree._Element) -> None:
+def postparse_sectiondef(element: lxml.etree._Element) -> None:
     # Parse all other definitions.
     for sectiondef in element.findall("sectiondef"):
         for memberdef in sectiondef.findall("memberdef"):
@@ -792,7 +877,7 @@ def parse_sectiondef(element: lxml.etree._Element) -> None:
                             elem = compound.elements[index]
                             elem.description = du.process_description(enumval.find("detaileddescription"), compound)
 
-def parse_xml(filename: str) -> None:
+def postparse_xml(filename: str) -> None:
     tree = lxml.etree.parse(filename)
     element = tree.find("compounddef")
     if element is None:
@@ -820,7 +905,7 @@ def parse_xml(filename: str) -> None:
                     header.brief = du.process_brief(element.find("briefdescription"), header)
                     header.description = du.process_description(element.find("detaileddescription"), header)
                     assert isinstance(header, du.Header)
-                    parse_sectiondef(element)
+                    postparse_sectiondef(element)
     # Track all groups and the functions that belong to them.
     # This is used to reference all other functions under each functions SEE ALSO man page section.
     elif kind == "group":
@@ -828,7 +913,7 @@ def parse_xml(filename: str) -> None:
             group = du.state.compounds[id]
             group.brief = du.process_brief(element.find("briefdescription"), group)
             group.description = du.process_description(element.find("detaileddescription"), group)
-            parse_sectiondef(element)
+            postparse_sectiondef(element)
 
 # Sort groups and pages by the order in which they are defined.
 def parse_index_xml(xmlfile: str) -> None:
@@ -839,7 +924,7 @@ def parse_index_xml(xmlfile: str) -> None:
             continue
         kind = element.get("kind")
         if kind == "group":
-            du.state.groups.append(refid)
+            du.state.group_ordering.append(refid)
 
 def exec(doxyfile: str) -> int:
     # Clone the doxyfile
@@ -876,6 +961,13 @@ def exec(doxyfile: str) -> int:
     clone.write("GENERATE_RTF = NO\n")
     clone.write("GENERATE_MAN = NO\n")
     clone.write("GENERATE_DOCBOOK = NO\n")
+    # This option ensures that if a struct has a typedef it emits
+    # seperate documentation for the typedef. Manos will consolidate
+    # the documentation for typedefs that merely alias a struct into
+    # the structs man page.
+    clone.write("TYPEDEF_HIDES_STRUCT = YES\n")
+    # Manos expects structs to always be in a seperate XML document.
+    clone.write("INLINE_SIMPLE_STRUCTS = NO\n")
     # Dump syntax highlighting information.
     clone.write("XML_PROGRAMLISTING = NO\n")
     clone.write("XML_NS_MEMB_FILE_SCOPE = NO\n")
@@ -921,19 +1013,23 @@ def exec(doxyfile: str) -> int:
     # Extract compound order.
     parse_index_xml(os.path.join(working_dir, "xml", "index.xml"))
 
-    # Extract top-level documentation first.
+    # Extract composite type documentation first.
     for file in xml_files:
         preparse_xml(file)
 
-    # There must be a project name specified in the Doxygen config.
-    # If the user does not specify a name, then Doxygen will default to "My Project".
-    assert du.state.project_name is not None
+    # Extract top-level documentation first.
+    for file in xml_files:
+        parse_xml(file)
 
     # Extract documentation for top-level compound data types.
     # Doxygen writes struct and union docs to their own XML files.
     # These are processed first before processing the header XML.
     for file in xml_files:
-        parse_xml(file)
+        postparse_xml(file)
+
+    # There must be a project name specified in the Doxygen config.
+    # If the user does not specify a name, then Doxygen will default to "My Project".
+    assert du.state.project_name is not None
 
     # Write documentation pages for compound data types.
     for compound in du.state.compounds.values():
@@ -1039,6 +1135,7 @@ def parse_args(arguments: Optional[List[str]] = None) -> int:
     group.add_argument("--with-parameters", action="store_true", dest="function_parameters", help="include PARAMS section in function and macro documentation")
     group.add_argument("--with-fields", action="store_true", dest="composite_fields", help="include FIELDS section in structure and union documentation")
     group.add_argument("--with-subsections", action="store_true", dest="subsections", help="include subsection titles in detailed descriptions")
+    group.add_argument("--with-styles", action="store_true", dest="styles", help="include bold, italic, underline, and strikethrough styles")
 
     group = parser.add_argument_group()
     group.add_argument("--topic", type=str, dest="topic", help="text positioned at the top of the man page; defaults to PROJECT_NAME in the Doxygen config", metavar="TEXT")
