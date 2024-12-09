@@ -14,6 +14,7 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from typing import List, Dict, Optional, Any
+from pygments.lexers.c_cpp import CLexer
 
 import lxml
 import lxml.etree
@@ -69,7 +70,7 @@ class Field(Compound):
     def __init__(self, id: str, composite: CompositeType) -> None:
         super().__init__(id)
         self.type = "void"
-        self.argstring = ""
+        self.argsstring = ""
         self.parent = composite
 
 class Function(Compound):
@@ -100,6 +101,9 @@ class EnumElement(Compound):
 class Typedef(Compound):
     def __init__(self, id: str, group_id: Optional[str] = None) -> None:
         super().__init__(id, group_id)
+        self.type = "void"
+        self.argsstring = ""
+        self.argsstring_params: OrderedSet[str] = OrderedSet()
 
 class Define(Compound):
     def __init__(self, id: str, group_id: Optional[str] = None) -> None:
@@ -119,7 +123,7 @@ class Variable(Compound):
     def __init__(self, id: str, group_id: Optional[str] = None) -> None:
         super().__init__(id, group_id)
         self.type = "void"
-        self.argstring = ""
+        self.argsstring = ""
 
 class Header(Compound):
     def __init__(self, id: str) -> None:
@@ -197,9 +201,18 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
             # check if what is being processed matches a function parameter.
             is_param = False
             if ctx.active_compound is not None:
-                 if isinstance(ctx.active_compound, Function) or isinstance(ctx.active_compound, Define):
+                if isinstance(ctx.active_compound, Function) or isinstance(ctx.active_compound, Define):
                     for param in ctx.active_compound.parameters:
                         if raw_text == param.name:
+                            is_param = True
+                            break
+                elif isinstance(ctx.active_compound, Typedef):
+                    # The Doxygen typedef argsstring, when it presents a function prototype, does not
+                    # tokenize the paramters for us so instead we'll tokenize them ourselves and
+                    # determine if any match the name of the referenced parameter.
+                    lexer = CLexer() # type: ignore
+                    for _, token in lexer.get_tokens(ctx.active_compound.argsstring):
+                        if raw_text == token:
                             is_param = True
                             break
             # Emit the inline code for the parameter differently than other inline code snippets.
@@ -242,7 +255,10 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                 params: List[str] = []
                 for parameternamelist in parameteritem.findall("parameternamelist"):
                     for parametername in parameternamelist.findall("parametername"):
-                        params.append(process_text(parametername))
+                        param = process_text(parametername)
+                        if isinstance(ctx.active_compound, Typedef):
+                            ctx.active_compound.argsstring_params.add(param)
+                        params.append(param)
                 content.append_macro("TP")
                 content.append_text(", ".join(params) + "\n")
                 content.append_text(str(process_as_roff(ctx, parameteritem.find("parameterdescription"))))

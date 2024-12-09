@@ -14,6 +14,7 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from typing import List, Dict, Tuple, Optional, cast
+from pygments.lexers.c_cpp import CLexer
 
 import lxml
 import lxml.etree
@@ -172,7 +173,7 @@ def generate_composite(composite: du.CompositeType) -> None:
         field_string = field.type
         if not field_string.endswith("*"):
             field_string += " "
-        field_string += f"{field.name}{field.argstring}"
+        field_string += f"{field.name}{field.argsstring}"
         roff.append_macro('B', f'"    {field_string};"')
     roff.append_macro('B', '};')
     roff.append_macro('fi')
@@ -251,6 +252,57 @@ def generate_enum(enum: du.Enum) -> None:
     # Write the file.
     generate_boilerplate(roff, enum)
 
+def generate_typedef(typedef: du.Typedef) -> None:
+    roff = Roff()
+    roff.append_macro("SH", "NAME")
+
+    if typedef.brief is not None:
+        roff.append_text(f'{typedef.name} \\- {briefify(typedef.brief)}')
+    else:
+        roff.append_text(f'{typedef.name}')
+
+    if du.state.project_brief is not None:
+        roff.append_macro('SH', 'LIBRARY')
+        roff.append_text(du.state.project_brief.strip())
+
+    roff.append_macro('SH', 'SYNOPSIS')
+    roff.append_macro('nf')
+    roff.append_macro('B', f'#include <{typedef.header}>')
+    roff.append_macro('PP')
+    decl = f'"typedef {typedef.type}'
+    # If the parameter type ends with an astrisk, that means it's pointer type
+    # and there should be no whitespace between it and the parameter name.
+    if not decl.endswith("*"):
+        decl += " "
+    decl += typedef.name
+
+    # The Doxygen typedef argsstring, when it presents a function prototype, does not
+    # tokenize the paramters for us so instead we'll tokenize them ourselves and
+    # determine if any match the name of the referenced parameter.
+    lexer = CLexer() # type: ignore
+    for _, token in lexer.get_tokens(typedef.argsstring):
+        # There shouldn't be any new lines in the argstring, but Pygments is adding them...
+        if token == '\n':
+            continue
+        if token in typedef.argsstring_params:
+            decl += f'" {token} "'
+        else:
+            decl += token
+
+    decl += ';"'
+    roff.append_macro("BI", decl)
+    roff.append_macro('fi')
+
+    if typedef.description is not None:
+        roff.append_macro('SH', 'DESCRIPTION')
+        roff.append_roff(typedef.description)
+    elif typedef.brief is not None:
+        roff.append_macro('SH', 'DESCRIPTION')
+        roff.append_text(typedef.brief)
+
+    # Write the file.
+    generate_boilerplate(roff, typedef)
+
 def generate_variable(variable: du.Variable) -> None:
     roff = Roff()
     roff.append_macro("SH", "NAME")
@@ -273,11 +325,8 @@ def generate_variable(variable: du.Variable) -> None:
     # and there should be no whitespace between it and the parameter name.
     if not decl.endswith("*"):
         decl += " "
-    decl += variable.name
-    if variable.argstring is not None:
-        decl += variable.argstring
-    decl += ';'
-    roff.append_text(decl)
+    decl += variable.name + variable.argsstring + ';'
+    roff.append_macro("B", decl)
     roff.append_macro('fi')
 
     if variable.description is not None:
@@ -583,6 +632,8 @@ def preparse_sectiondef(element: lxml.etree._Element) -> None:
                 typedef = du.Typedef(id, group_id)
                 typedef.name = du.process_text(memberdef.find("name"))
                 typedef.brief = du.process_brief(memberdef.find("briefdescription"))
+                typedef.type = du.process_text(memberdef.find("type"))
+                typedef.argsstring = du.process_text(memberdef.find("argsstring"))
                 typedef.header = location_file
                 du.state.compounds[id] = typedef
             elif kind == "enum":
@@ -627,7 +678,7 @@ def preparse_sectiondef(element: lxml.etree._Element) -> None:
                 variable.brief = du.process_brief(memberdef.find("briefdescription"))
                 variable.name = du.process_text(memberdef.find("name"))
                 variable.type = du.process_text(memberdef.find("type"))
-                variable.argstring = du.process_text(memberdef.find("argsstring"))
+                variable.argsstring = du.process_text(memberdef.find("argsstring"))
                 variable.header = location_file
                 du.state.compounds[id] = variable
 
@@ -667,7 +718,7 @@ def preparse_xml(filename: str) -> None:
                     field = du.Field(field_id, composite)
                     field.type = du.process_text(memberdef.find("type"))
                     field.name = du.process_text(memberdef.find("name"))
-                    field.argstring = du.process_text(memberdef.find("argsstring"))
+                    field.argsstring = du.process_text(memberdef.find("argsstring"))
                     field.brief = du.process_brief(memberdef.find("briefdescription"))
                     composite.fields.append(field)
             du.state.compounds[id] = composite
@@ -774,6 +825,7 @@ def parse_xml(filename: str) -> None:
             group.brief = du.process_brief(element.find("briefdescription"))
             group.description = du.process_description(element.find("detaileddescription"), group)
             parse_sectiondef(element)
+
 # Sort groups and pages by the order in which they are defined.
 def parse_index_xml(xmlfile: str) -> None:
     tree = lxml.etree.parse(xmlfile)
@@ -893,6 +945,8 @@ def exec(doxyfile: str) -> int:
             generate_define(compound)
         elif isinstance(compound, du.Variable):
             generate_variable(compound)
+        elif isinstance(compound, du.Typedef):
+            generate_typedef(compound)
 
     # Delete the temporary Doxyfile cloned that was from the original.
     if os.path.exists(doxyfile_manos):
