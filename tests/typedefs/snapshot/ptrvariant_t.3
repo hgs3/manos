@@ -1,0 +1,17 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+ptrvariant_t \- union pointer with typedef
+.SH SYNOPSIS
+.nf
+.B #include <typedef.h>
+.PP
+.BI "typedef union variant_t *ptrvariant_t;"
+.fi
+.SH DESCRIPTION
+A pointer to this union declared with a typedef.
+.PP
+This is typically bad practice in real API's as it hides the pointer.
+Better to use \f[B]variant_t\f[R](3) instead or better yet use \f[B]Variant\f[R](3) directly.
+.SH SEE ALSO
+.BR variant_t (3),
+.BR Variant (3)

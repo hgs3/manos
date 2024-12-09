@@ -479,10 +479,10 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
     # to then and can properly deal with it.
     raise Exception("unknown node", elem.tag)
 
-def process_brief(elem: Optional[lxml.etree._Element]) -> Optional[str]:
+def process_brief(elem: Optional[lxml.etree._Element], compound: Compound) -> Optional[str]:
     # Brief descriptions should consist of a single line so remove any
     # commands, like .PP, because they will force text onto another line.
-    roff = process_as_roff(Context(True, None), elem)
+    roff = process_as_roff(Context(True, compound), elem)
     roff.entries = list(filter(lambda x: isinstance(x, Text), roff.entries))
     brief = str(roff).strip()
     if len(brief) == 0:

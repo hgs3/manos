@@ -168,14 +168,14 @@ def generate_composite(composite: du.CompositeType) -> None:
     roff.append_macro('nf')
     roff.append_macro('B', f'#include <{composite.header}>')
     roff.append_macro('PP')
-    roff.append_macro('B', f'{"struct" if composite.is_struct else "union"} {composite.name} {{')
+    roff.append_macro('B', f'"{"struct" if composite.is_struct else "union"} {composite.name} {{"')
     for field in composite.fields:
         field_string = field.type
         if not field_string.endswith("*"):
             field_string += " "
         field_string += f"{field.name}{field.argsstring}"
         roff.append_macro('B', f'"    {field_string};"')
-    roff.append_macro('B', '};')
+    roff.append_macro('B', '"};"')
     roff.append_macro('fi')
 
     if composite.description is not None:
@@ -220,10 +220,10 @@ def generate_enum(enum: du.Enum) -> None:
     roff.append_macro('nf')
     roff.append_macro('B', f'#include <{enum.header}>')
     roff.append_macro('PP')
-    roff.append_macro('B', f'enum {enum.name} {{')
+    roff.append_macro('B', f'"enum {enum.name} {{"')
     for elem in enum.elements:
         roff.append_macro('B', f'"    {elem.name},"')
-    roff.append_macro('B', '};')
+    roff.append_macro('B', '"};"')
     roff.append_macro('fi')
 
     if enum.description is not None:
@@ -616,22 +616,24 @@ def preparse_sectiondef(element: lxml.etree._Element) -> None:
             if kind == "function":
                 function = du.Function(id, group_id)
                 function.name = du.process_text(memberdef.find("name"))
-                function.brief = du.process_brief(memberdef.find("briefdescription"))
                 function.return_type = du.process_text(memberdef.find("type"))
                 function.header = location_file
                 for param_xml in memberdef.findall("param"):
                     param_name_xml = param_xml.find("declname")
                     param_array_xml = param_xml.find("array")
                     param = du.Function.Parameter()
-                    param.type = du.process_text(param_xml.find("type"))
                     param.name = du.process_text(param_name_xml) if param_name_xml is not None else None
+                    param.type = du.process_text(param_xml.find("type"))
                     param.array = du.process_text(param_array_xml) if param_array_xml is not None else None
                     function.parameters.append(param)
+                # This must parse AFTER gather the parameter names so if a paramter is referenced
+                # then it is referenced _correctly_ as a parameter and not as inline code.
+                function.brief = du.process_brief(memberdef.find("briefdescription"), function)
                 du.state.compounds[id] = function
             elif kind == "typedef":
                 typedef = du.Typedef(id, group_id)
                 typedef.name = du.process_text(memberdef.find("name"))
-                typedef.brief = du.process_brief(memberdef.find("briefdescription"))
+                typedef.brief = du.process_brief(memberdef.find("briefdescription"), typedef)
                 typedef.type = du.process_text(memberdef.find("type"))
                 typedef.argsstring = du.process_text(memberdef.find("argsstring"))
                 typedef.header = location_file
@@ -639,7 +641,7 @@ def preparse_sectiondef(element: lxml.etree._Element) -> None:
             elif kind == "enum":
                 enum = du.Enum(id, group_id)
                 enum.name = du.process_text(memberdef.find("name"))
-                enum.brief = du.process_brief(memberdef.find("briefdescription"))
+                enum.brief = du.process_brief(memberdef.find("briefdescription"), enum)
                 enum.header = location_file
                 du.state.compounds[id] = enum
                 # Store all enumeration members in the same dictionary as the enumeration itself.
@@ -649,13 +651,12 @@ def preparse_sectiondef(element: lxml.etree._Element) -> None:
                     assert enumval_id is not None
                     elem = du.EnumElement(enumval_id, enum)
                     elem.name = du.process_text(enumval.find("name"))
-                    elem.brief = du.process_brief(enumval.find("briefdescription"))
+                    elem.brief = du.process_brief(enumval.find("briefdescription"), enum)
                     enum.elements.append(elem)
                     du.state.compounds[enumval_id] = elem
             elif kind == "define":
                 define = du.Define(id, group_id)
                 define.name = du.process_text(memberdef.find("name"))
-                define.brief = du.process_brief(memberdef.find("briefdescription"))
                 define.header = location_file
                 for param_xml in memberdef.findall("param"):
                     declname_xml = param_xml.find("defname")
@@ -672,10 +673,13 @@ def preparse_sectiondef(element: lxml.etree._Element) -> None:
                 initializer_xml = memberdef.find("initializer")
                 if initializer_xml is not None:
                     define.initializer = initializer_xml.text
+                # This must parse AFTER gather the parameter names so if a paramter is referenced
+                # then it is referenced _correctly_ as a parameter and not as inline code.
+                define.brief = du.process_brief(memberdef.find("briefdescription"), define)
                 du.state.compounds[id] = define
             elif kind == "variable":
                 variable = du.Variable(id, group_id)
-                variable.brief = du.process_brief(memberdef.find("briefdescription"))
+                variable.brief = du.process_brief(memberdef.find("briefdescription"), variable)
                 variable.name = du.process_text(memberdef.find("name"))
                 variable.type = du.process_text(memberdef.find("type"))
                 variable.argsstring = du.process_text(memberdef.find("argsstring"))
@@ -719,7 +723,7 @@ def preparse_xml(filename: str) -> None:
                     field.type = du.process_text(memberdef.find("type"))
                     field.name = du.process_text(memberdef.find("name"))
                     field.argsstring = du.process_text(memberdef.find("argsstring"))
-                    field.brief = du.process_brief(memberdef.find("briefdescription"))
+                    field.brief = du.process_brief(memberdef.find("briefdescription"), composite)
                     composite.fields.append(field)
             du.state.compounds[id] = composite
         elif kind == "file":
@@ -813,7 +817,7 @@ def parse_xml(filename: str) -> None:
             if id := element.get("id"):
                 if id in du.state.compounds:
                     header = du.state.compounds[id]
-                    header.brief = du.process_brief(element.find("briefdescription"))
+                    header.brief = du.process_brief(element.find("briefdescription"), header)
                     header.description = du.process_description(element.find("detaileddescription"), header)
                     assert isinstance(header, du.Header)
                     parse_sectiondef(element)
@@ -822,7 +826,7 @@ def parse_xml(filename: str) -> None:
     elif kind == "group":
         if id := element.get("id"):
             group = du.state.compounds[id]
-            group.brief = du.process_brief(element.find("briefdescription"))
+            group.brief = du.process_brief(element.find("briefdescription"), group)
             group.description = du.process_description(element.find("detaileddescription"), group)
             parse_sectiondef(element)
 
@@ -847,7 +851,7 @@ def exec(doxyfile: str) -> int:
         doxyfile_manos = os.path.join(working_dir, "Doxyfile.manos")
         shutil.copyfile(doxyfile, doxyfile_manos)
     except:
-        print("error: cannot write to the directory of the doxygen configuration file", file=op.args.stderr)
+        print("error: cannot write to the directory of the Doxygen configuration file", file=op.args.stderr)
         return 1
 
     # Generate output directory if it doesn't exist.

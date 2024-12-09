@@ -1,0 +1,52 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+dangling-punctuation.h \- dangling punctuation test cases
+.SH SYNOPSIS
+.nf
+.B #include <dangling-punctuation.h>
+.fi
+.SH DESCRIPTION
+Link to \f[B]foobar\f[R](3).
+Lets follow it with another sentence that has a \f[B]foobar\f[R](3).
+.PP
+Link again to \f[B]foobar\f[R](3), but with a comma after it rather than a new sentence.
+.PP
+Link again, but add a trailing period character after \f[B]foobar\f[R](3).
+.PP
+Link again, but add a trailing exclamation point character after \f[B]foobar\f[R](3)!
+.PP
+Link again, but add a trailing question mark character after \f[B]foobar\f[R](3)?
+.PP
+Style text as \f[B]bold\f[R].
+.PP
+Style text as \f[I]italic\f[R].
+.PP
+Style text as \f[C]code\f[R].
+.PP
+Style text as \f[B]bold\f[R], \f[I]italic\f[R], and \f[C]code\f[R].
+Lets follow it with another sentence.
+.PP
+Triple dot link \f[B]foobar\f[R](3)...
+.PP
+Triple dot \f[B]bold\f[R]...
+.PP
+Triple dot \f[I]italic\f[R]...
+.PP
+Triple dot \f[C]code\f[R]...
+.PP
+Repeated \f[B]bold bold bold\f[R] text.
+.PP
+Repeated \f[I]italic italic italic\f[R] text.
+.PP
+This is the end of the documentation.
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBfoobar\fR(3);T{
+This is a function.
+T}
+.TE
+.SH SEE ALSO
+.BR foobar (3)

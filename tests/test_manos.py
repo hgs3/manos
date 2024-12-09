@@ -29,6 +29,7 @@ class Params(TypedDict, total=False):
     function_parameters: bool
     subsections: bool
     composite_fields: bool
+    styles: bool
     topic: Optional[str]
     section: int
     include_path: str
@@ -112,7 +113,10 @@ def test_empty() -> None:
     assert_snapshot("empty")
 
 def test_styling() -> None:
-    assert_snapshot("styling")
+    assert_snapshot("styling", "snapshot", styles=True)
+
+def test_styling_disabled() -> None:
+    assert_snapshot("styling", "snapshot-without-styling", styles=False)
 
 def test_lists_ordered() -> None:
     assert_snapshot("lists-ordered")
@@ -140,6 +144,9 @@ def test_code_references() -> None:
 
 def test_dangling_punctuation() -> None:
     assert_snapshot("dangling-punctuation")
+
+def test_dangling_punctuation() -> None:
+    assert_snapshot("dangling-punctuation", "snapshot-with-styles", styles=True)
 
 def test_inline_code() -> None:
     assert_snapshot("inline-code")
@@ -258,9 +265,9 @@ def test_no_xml(capsys: pytest.CaptureFixture[str]) -> None:
 def test_no_doxygen_installed(mocker: pytest_mock.MockFixture, capsys: pytest.CaptureFixture[str]) -> None:
     mocker.patch("shutil.which").return_value = None
     assert process(os.path.join(WORKING_DIR, "empty", "Doxyfile")) == 1
-    assert capsys.readouterr().err == "error: could not find doxygen;\n       please install it https://www.doxygen.nl/\n"
+    assert capsys.readouterr().err == "error: could not find Doxygen\n       please install it https://www.doxygen.nl/\n"
 
 def test_copyfile_failed(mocker: pytest_mock.MockFixture, capsys: pytest.CaptureFixture[str]) -> None:
     mocker.patch("shutil.copyfile").side_effect = Exception('Boom!')
     assert process(os.path.join(WORKING_DIR, "empty", "Doxyfile")) == 1
-    assert capsys.readouterr().err == "error: cannot write to the directory of the doxygen configuration file\n"
+    assert capsys.readouterr().err == "error: cannot write to the directory of the Doxygen configuration file\n"

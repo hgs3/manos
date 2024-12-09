@@ -1,0 +1,14 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+string_t \- structure with typedef
+.SH SYNOPSIS
+.nf
+.B #include <typedef.h>
+.PP
+.BI "typedef struct String string_t;"
+.fi
+.SH DESCRIPTION
+This structure is declared with a typedef.
+It's preferred to use this directly over the \f[B]ptrstring_t\f[R](3) typedef because the latter hides the pointer.
+.SH SEE ALSO
+.BR ptrstring_t (3)

@@ -1,4 +1,4 @@
-/*! \file frob.h
+/*! \file froble.h
  *  \brief \copybrief FrobAPI
  *  \copydetails FrobAPI
  */

@@ -56,9 +56,9 @@ void fail(...);
  * @{
  */
 
-/*! \brief Check two integers, floating-point numbers, or pointers to determine if \a X == \a Y.
+/*! \brief Check two integers, floating-point numbers, or pointers to determine if \p X == \p Y.
  *
- *  If \a X != \a Y, the test case is aborted.
+ *  If \p X != \p Y, the test case is aborted.
  *  If you need to compare floats, use #assert_eq_approx.
  *
  *  \param[in] X value
@@ -69,9 +69,9 @@ void fail(...);
  */
 void assert_eq(int X, int Y, ...);
 
-/*! \brief Check two floating-point numbers to determine if \a X ≈ \a Y with the specified tolerance
+/*! \brief Check two floating-point numbers to determine if \p X ≈ \p Y with the specified tolerance
  *
- *  If \a X ≉ \a Y, the test case is aborted.
+ *  If \p X ≉ \p Y, the test case is aborted.
  * 
  *  \param[in] X floating point number
  *  \param[in] Y floating point number to compare against X
@@ -89,9 +89,9 @@ void assert_eq_approx(double X, double Y, double T, ...);
  * @{
  */
 
-/*! \brief Check two integers, floating-point numbers, or pointers to determine if \a X == \a Y.
+/*! \brief Check two integers, floating-point numbers, or pointers to determine if \p X == \p Y.
  *
- *  If \a X != \a Y, the test case fails.
+ *  If \p X != \p Y, the test case fails.
  *
  *  \param[in] X value
  *  \param[in] Y value to compare against X
@@ -101,9 +101,9 @@ void assert_eq_approx(double X, double Y, double T, ...);
  */
 void expect_eq(int X, int Y, ...);
 
-/*! \brief Check two floating-point numbers to determine if \a X ≈ \a Y with the specified tolerance
+/*! \brief Check two floating-point numbers to determine if \p X ≈ \p Y with the specified tolerance
  *
- *  If \a X ≉ \a Y, the test case fails.
+ *  If \p X ≉ \p Y, the test case fails.
  * 
  *  \param[in] X floating point number
  *  \param[in] Y floating point number to compare against X

@@ -26,11 +26,11 @@
 /*! \brief Sum two numbers and return the result.
  *
  *  This is a type-generic macro for performing addition between two numeric types.
- *  The left-side is given as \a X and the right-side is given as \a Y and the result of adding them is returned.
+ *  The left-side is given as \p X and the right-side is given as \p Y and the result of adding them is returned.
  *
  *  \param[in] X Number on the left-hand-side.
  *  \param[in] Y Number on the right-hand-side.
- *  \return The sum of \a X and \a Y.
+ *  \return The sum of \p X and \p Y.
  *
  *  \since 0.1.0
  */

@@ -24,6 +24,7 @@ def process(doxyfile: str,
             preamble: Optional[str] = None,
             epilogue: Optional[str] = None,
             function_parameters: bool = False,
+            styles: bool = False,
             subsections: bool = False,
             composite_fields: bool = False,
             stdout: Optional[TextIO] = None,
@@ -43,6 +44,7 @@ def process(doxyfile: str,
     :param preamble: Content to prepend to each man page (e.g. copyright comment).
     :param epilogue: Content to append to each man page.
     :param function_parameters: Toggle \\param documentation in a functions man page.
+    :param styles: Toggle bold, italics, underline, and strikethrough styles.
     :param subsections: Toggle subsection documentation in a functions man page.
     :param composite_fields: Toggle documentation for struct and union fields.
     :param stdout: Redirect Doxygen standard output.
@@ -83,6 +85,7 @@ def process(doxyfile: str,
     args.preamble = preamble
     args.epilogue = epilogue
     args.function_parameters = function_parameters
+    args.preserve_styles = styles
     args.subsections = subsections
     args.composite_fields = composite_fields
     args.doxygen_settings = doxygen_settings
