@@ -1,0 +1,43 @@
+.TH "UNICORN" "3"
+.SH NAME
+uni_collate \- compare strings for sorting
+.SH LIBRARY
+Embeddable Unicode Algorithms (libunicorn, -lunicorn)
+.SH SYNOPSIS
+.nf
+.B #include <unicorn.h>
+.PP
+.BI "unistat uni_collate(const void *" s1 ", unisize " s1_len ", unienc " s1_enc ", const void *" s2 ", unisize " s2_len ", unienc " s2_enc ", uniweighting " weighting ", unistrength " strength ", int *" result ");"
+.fi
+.SH DESCRIPTION
+Compare strings \f[I]s1\f[R] and \f[I]s2\f[R] and write either -1, 0, or 1 to \f[I]result\f[R] depending on if \f[C]s1 < s2\f[R], \f[C]s1 = s2\f[R], or \f[C]s1 > s2\f[R].
+This function is intended for one-off string comparisons.
+If a string will be compared multiple times, then it’s recommended to build a sort key for it.
+Sort keys are constructed with \f[B]uni_sortkeymk\f[R](3) and compared with \f[B]uni_sortkeycmp\f[R](3).
+.PP
+Support for collation must be enabled in the JSON configuration file.
+.PP
+.in +4n
+.EX
+{
+    "algorithms": {
+        "collation": true
+    }
+}
+.EE
+.in
+.SH RETURN VALUE
+.TP
+UNI_OK
+If the scalar was successfully decoded.
+.TP
+UNI_BAD_OPERATION
+If \f[I]s1\f[R], \f[I]s2\f[R], or \f[I]result\f[R] are NULL.
+.TP
+UNI_NO_MEMORY
+If dynamic memory allocation failed.
+.SH SEE ALSO
+.BR uni_sortkeymk (3),
+.BR uni_sortkeycmp (3),
+.BR uniweighting (3),
+.BR unistrength (3)

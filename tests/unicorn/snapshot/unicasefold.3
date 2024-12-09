@@ -1,0 +1,23 @@
+.TH "UNICORN" "3"
+.SH NAME
+unicasefold \- case folding operations
+.SH LIBRARY
+Embeddable Unicode Algorithms (libunicorn, -lunicorn)
+.SH SYNOPSIS
+.nf
+.B #include <unicorn.h>
+.PP
+.B "enum unicasefold {"
+.B "    UNI_DEFAULT,"
+.B "    UNI_CANONICAL,"
+.B "};"
+.fi
+.SH DESCRIPTION
+This enumeration defines the supported case folding operations.
+.SH CONSTANTS
+.TP
+.BR UNI_DEFAULT
+Case folding for binary caseless string comparison.
+.TP
+.BR UNI_CANONICAL
+Case folding for canonical caseless string comparison.

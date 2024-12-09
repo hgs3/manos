@@ -1,0 +1,68 @@
+.TH "AUDITION" "3"
+.SH NAME
+audition.h \- this header defines the full API for the library
+.SH LIBRARY
+Modern xUnit testing framework for C11 and beyond.
+.SH SYNOPSIS
+.nf
+.B #include <audition.h>
+.fi
+.SH DESCRIPTION
+The main header file for the library.
+.TS
+tab(;);
+l l.
+\fBDefines\fR;\fBDescription\fR
+_
+\fBTEST\fR(3);T{
+Entry point for a unit test.
+T}
+\fBABORT\fR(3);T{
+Aborts the test case with an error message.
+T}
+\fBFAKE\fR(3);T{
+Redirects all function calls to a mock function.
+T}
+\fBCALL\fR(3);T{
+Call the original function being mocked.
+T}
+\fBCALL_GET\fR(3);T{
+Call the original function being mocked and save its return value.
+T}
+
+.T&
+l l.
+\fBVariables\fR;\fBDescription\fR
+_
+\fBTEST_ITERATION\fR(3);T{
+The iteration index of the currently executing loop test case.
+T}
+.TE
+.SS Value Assertions
+Compare integers, floating-point numbers, pointers, and booleans.
+.TS
+tab(;);
+l l.
+\fBDefines\fR;\fBDescription\fR
+_
+\fBASSERT_EQ\fR(3);T{
+Check two integers, floating-point numbers, or pointers to determine if X == Y.
+T}
+\fBEXPECT_EQ_APPROX\fR(3);T{
+Check two floating-point numbers to determine if X ≈ Y with the specified tolerance.
+T}
+.TE
+.SS Helpers
+Portable system abstractions and framework interfaces.
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBaudit_now\fR(3);T{
+Monotonic time in milliseconds.
+T}
+\fBaudit_sleep\fR(3);T{
+Suspends the execution of the current thread until the time-out interval elapses.
+T}
+.TE

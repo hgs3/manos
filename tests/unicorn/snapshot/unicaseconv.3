@@ -1,0 +1,27 @@
+.TH "UNICORN" "3"
+.SH NAME
+unicaseconv \- case conversion operations
+.SH LIBRARY
+Embeddable Unicode Algorithms (libunicorn, -lunicorn)
+.SH SYNOPSIS
+.nf
+.B #include <unicorn.h>
+.PP
+.B "enum unicaseconv {"
+.B "    UNI_LOWER,"
+.B "    UNI_TITLE,"
+.B "    UNI_UPPER,"
+.B "};"
+.fi
+.SH DESCRIPTION
+This enumeration defines the supported case conversion operations.
+.SH CONSTANTS
+.TP
+.BR UNI_LOWER
+Lowercase case conversion.
+.TP
+.BR UNI_TITLE
+Titlecase case conversion.
+.TP
+.BR UNI_UPPER
+Uppercase case conversion.

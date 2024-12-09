@@ -256,6 +256,12 @@ def test_fullpath() -> None:
                         ("STRIP_FROM_PATH", os.path.dirname(os.path.abspath(__file__))),
                     ])
 
+def test_audition() -> None:
+    assert_snapshot("audition")
+
+def test_unicorn() -> None:
+    assert_snapshot("unicorn")
+
 # Intentionally exclude all XML files.
 def test_no_xml(capsys: pytest.CaptureFixture[str]) -> None:
     os.chdir(os.path.join(WORKING_DIR, "empty"))

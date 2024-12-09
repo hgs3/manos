@@ -1,0 +1,28 @@
+.TH "UNICORN" "3"
+.SH NAME
+uni_prevbrk \- sets the iterator position to the preceding boundary
+.SH LIBRARY
+Embeddable Unicode Algorithms (libunicorn, -lunicorn)
+.SH SYNOPSIS
+.nf
+.B #include <unicorn.h>
+.PP
+.BI "unistat uni_prevbrk(unibreak " type ", const void *" text ", unisize " length ", unienc " encoding ", unisize *" index ");"
+.fi
+.SH DESCRIPTION
+Set the iterator position to the boundary preceding its current position.
+The \f[C]pos\f[R] parameter will be populated with the code unit offset of the boundary and whether said boundary is optional or mandatory.
+.PP
+When \f[B]UNI_DONE\f[R] is returned then the position of the iterator is at the beginning of the text being scanned.
+.SH RETURN VALUE
+.TP
+UNI_OK
+If the break iterator was successfully repositioned.
+.TP
+UNI_DONE
+If the break iterator is at the beginning of the text being scanned.
+.TP
+UNI_BAD_OPERATION
+If \f[C]it\f[R] is \f[C]NULL\f[R].
+.SH SEE ALSO
+.BR unistat (3)
