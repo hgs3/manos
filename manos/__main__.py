@@ -961,6 +961,8 @@ def exec(doxyfile: str) -> int:
     clone.write("GENERATE_RTF = NO\n")
     clone.write("GENERATE_MAN = NO\n")
     clone.write("GENERATE_DOCBOOK = NO\n")
+    # Enable sections only flagged for Manos man pages.
+    clone.write("ENABLED_SECTIONS += MANOS\n")
     # This option ensures that if a struct has a typedef it emits
     # seperate documentation for the typedef. Manos will consolidate
     # the documentation for typedefs that merely alias a struct into
@@ -979,7 +981,6 @@ def exec(doxyfile: str) -> int:
     # xml output on their own, seperate from manos).
     clone.write("XML_OUTPUT = xml\n")
     clone.close()
-
     # Generate the XML documentation.
     # Type checking is disabled for run() because it would require
     # declaring a custom TypedDict and it's not worth the hassle.

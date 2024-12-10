@@ -21,14 +21,6 @@
  * 
  *  \image html face.jpg
  * 
- *  The following is a table:
- * 
- *  | Foo | Bar |
- *  | --- | --- |
- *  | 1   | A   |
- *  | 2   | B   |
- *  | 3   | C   |
- * 
  *  The following is a LaTeX formula \f$2^{31} - 1\f$ embedded within a paragraph.
  * 
  *  The end.

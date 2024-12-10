@@ -139,6 +139,9 @@ def test_deprecated() -> None:
 def test_codeblock() -> None:
     assert_snapshot("codeblock")
 
+def test_tables() -> None:
+    assert_snapshot("tables")
+
 def test_code_references() -> None:
     assert_snapshot("code-references")
 

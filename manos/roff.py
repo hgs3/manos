@@ -23,8 +23,9 @@ class Text:
 # This is identical to 'Text' except it is output as-is without any special processing.
 # It is intended for literal blocks, like code examples.
 class LiteralText:
-    def __init__(self, source: str) -> None:
+    def __init__(self, source: str, standalone: bool = False) -> None:
         self.source = source
+        self.standalone = standalone
 
 class Macro:
     def __init__(self, name: str, argument: Optional[str]) -> None:
@@ -70,13 +71,16 @@ class Roff:
         self.entries.append(Text(other))
 
     def append_source(self, other: str) -> None:
-        self.entries.append(LiteralText(other))
+        self.entries.append(LiteralText(other, True))
 
     def append_macro(self, name: str, argument: Optional[str] = None) -> None:
         assert name[0] != ".", "You should omit the dot when appending a macro."
         roff = Roff()
         roff.entries.append(Macro(name, argument))
         self.append_roff(roff)
+
+    def append(self, elem: RoffElements) -> None:
+        self.entries.append(elem)
 
     def __deepcopy__(self, memo: Dict[int, Any]) -> 'Roff':
         copy = Roff()
@@ -86,7 +90,7 @@ class Roff:
             elif isinstance(entry, Text):
                 copy.append_text(entry.content)
             elif isinstance(entry, LiteralText):
-                copy.append_source(entry.source)
+                copy.append(LiteralText(entry.source, entry.standalone))
         return copy
     
     def simplify(self) -> 'Roff':
@@ -147,7 +151,7 @@ class Roff:
             elif isinstance(curr, Text):
                 # If the previous entry was a macro or source code, then add a new line after it.
                 # This deliminates code/macros from paragraph text.
-                if isinstance(prev, Macro) or isinstance(prev, LiteralText):
+                if isinstance(prev, Macro) or (isinstance(prev, LiteralText) and prev.standalone):
                     text += "\n"
                 text += "\n".join(segment(curr.content))
             prev = curr

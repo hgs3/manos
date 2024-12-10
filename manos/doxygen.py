@@ -21,7 +21,7 @@ import lxml.etree
 import math
 
 from .builtin import c_functions, posix_functions
-from .roff import Roff, Macro, Text
+from .roff import Roff, Macro, Text, LiteralText
 from .ordered_set import OrderedSet
 from . import option as op
 
@@ -441,7 +441,50 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
             else:
                 print("warning: unsupported xrefsect: {0}".format(title_xml.text), file=op.args.stdout)
         return Roff()
-    
+
+    # Tables.
+    if elem.tag == "table":
+        cols_xml = elem.get("cols")
+        if cols_xml is None or cols_xml == 0:
+            print("warning: found table without columns", file=op.args.stdout)
+            return Roff()
+        column_count = int(cols_xml)
+        roff = Roff()
+        roff.append_macro('TS')
+        roff.append_text('allbox tab(|);\n')
+        for i in range(column_count):
+            roff.append_text('l')
+            if i < column_count - 1:
+                roff.append_text(' ')
+        roff.append_text('.\n')
+        rows_xml = elem.findall("row")
+        for row_index, row_xml in enumerate(rows_xml):
+            # Extract the text for each column.
+            is_header = False
+            column_data: List[str] = []
+            for entry_xml in row_xml.findall("entry"):
+                if entry_xml.get("thead") == "yes":
+                    if row_index == 0:
+                        is_header = True
+                    else:
+                        print("warning: found table with multiple headings; emitting only the first", file=op.args.stdout)
+                column_data.append(process_text(entry_xml))
+            # Format the column data and write it.
+            if is_header:
+                column_data = list(map(lambda col: f"\\fB{col}\\fR", column_data))
+                roff.append_text("|".join(column_data) + "\n")
+            else:
+                for column_index, col in enumerate(column_data):
+                    roff.append_text('T{\n')
+                    roff.append_text(f'{col}\n')
+                    roff.append_text('T}')
+                    if column_index < len(column_data) - 1:
+                        roff.append_text('|')
+                    elif row_index < len(rows_xml) - 1:
+                        roff.append(LiteralText('\n'))
+        roff.append_macro('TE')
+        return roff
+
     # Move to the next line.
     if elem.tag == "linebreak":
         roff = Roff()
@@ -464,7 +507,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
         return process_children(ctx, elem)
 
     # Ignore all other commands.
-    if elem.tag in ["emoji", "table", "image", "formula"]:
+    if elem.tag in ["emoji", "image", "formula"]:
         print("warning: ignoring \\{0} command".format(elem.tag), file=op.args.stdout)
         return Roff()
 
