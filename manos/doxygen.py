@@ -37,7 +37,7 @@ class Compound:
         # The following are extracted when parsing the detailed description of the compound.
         self.authors: List[Roff] = []
         self.bugs: List[Roff] = []
-        self.examples: List[Roff] = []
+        self.examples: List[Example] = []
         self.deprecated: List[Roff] = []
         self._referenced: OrderedSet[Compound] = OrderedSet()
 
@@ -137,9 +137,9 @@ class Group(Compound):
     def __init__(self, id: str) -> None:
         super().__init__(id)
 
-class Example:
-    def __init__(self, description: lxml.etree._Element) -> None:
-        self.description = description
+class Example(Compound):
+    def __init__(self, id: str) -> None:
+        super().__init__(id)
 
 class Context:
     def __init__(self, ignore_refs: bool, active_compound: Optional[Compound]) -> None:
@@ -307,6 +307,9 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                     if ctx.active_compound is not None:
                         ctx.active_compound.add_referenced(compound.parent)
                     return roff
+                elif isinstance(compound, Example):
+                    if ctx.active_compound is not None:
+                        ctx.active_compound.examples.append(compound)
         return content
 
     # Check for an external URL link, i.e. a link to a webpage.
@@ -410,8 +413,8 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
         elif kind == "see":
             # Visit the child elements but discard the Roff result. The purpose
             # for visiting the children is to check what's being referenced:
-            # If it's a function, then it will be added to the SEE ALSO
-            # section of the man page (see "ref" element handler).
+            # If it's a function, then it will be added to the SEE ALSO section.
+            # If it's an example, then it will be added to the EXAPMLES section.
             process_children(ctx, elem)
             return Roff()
         elif kind in ["since", "note", "warning", "attention"]:
@@ -445,7 +448,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
     # Tables.
     if elem.tag == "table":
         cols_xml = elem.get("cols")
-        if cols_xml is None or cols_xml == 0:
+        if cols_xml is None or int(cols_xml) == 0:
             print("warning: found table without columns", file=op.args.stdout)
             return Roff()
         column_count = int(cols_xml)
@@ -557,7 +560,6 @@ class State:
         self.project_name: Optional[str] = None
         self.project_brief: Optional[str] = None
         self.project_version: Optional[str] = None
-        self.examples: Dict[str, List[Example]] = {}
         self.compounds: Dict[str, Compound] = {}  # Key is Doxygen reference id
         self.manpages: Dict[str, Compound] = {}  # Key is man page name (without extension, e.g. ".3")
         self.group_ordering: List[str] = []

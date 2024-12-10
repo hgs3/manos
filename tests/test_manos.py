@@ -148,7 +148,7 @@ def test_code_references() -> None:
 def test_dangling_punctuation() -> None:
     assert_snapshot("dangling-punctuation")
 
-def test_dangling_punctuation() -> None:
+def test_dangling_punctuation_with_styles() -> None:
     assert_snapshot("dangling-punctuation", "snapshot-with-styles", styles=True)
 
 def test_inline_code() -> None:

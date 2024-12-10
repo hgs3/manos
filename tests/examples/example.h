@@ -22,3 +22,12 @@
  *  \see \ref foo.c
  */
 void Frobnicate(int xyz[64]);
+
+/*! \brief Construct a foo.
+ *
+ *  This function constructs a foo.
+ *
+ *  \see \ref foo.c
+ *  \see \ref bar.c
+ */
+void MakeFoo(void);

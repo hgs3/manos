@@ -115,7 +115,10 @@ def generate_boilerplate(roff: Roff, compound: du.Compound) -> None:
     if len(compound.examples) > 0:
         roff.append_macro('SH', 'EXAMPLES')
         for index,example in enumerate(compound.examples):
-            roff.append_roff(example.simplify())
+            if example.description is not None:
+                roff.append_roff(example.description.simplify())
+            elif example.brief is not None:
+                roff.append_text(example.brief)
             if index < len(compound.examples) - 1:
                 roff.append_macro('PP')
 
@@ -839,25 +842,11 @@ def parse_xml(filename: str) -> None:
     # Track all groups and the functions that belong to them.
     # This is used to reference all other functions under each functions SEE ALSO man page section.
     elif kind == "group":
-        id = element.get("id")
-        assert id is not None
+        id = element.get("id"); assert id is not None
         group = du.Group(id)
         group.name = du.process_text(element.find("title"))
         register_compund(group)
         parse_sectiondef(element)
-    # Extract examples to latter include in the associated header file.
-    # The examples associated with said header file will be added
-    # to the EXAMPLES man page section of said header file.
-    elif kind == "example":
-        location_xml = element.find("location")
-        description_xml = element.find("detaileddescription")
-        if location_xml is not None and description_xml is not None:
-            file_xml = location_xml.get("file")
-            if file_xml is not None:
-                if file_xml in du.state.examples:
-                    du.state.examples[file_xml].append(du.Example(description_xml))
-                else:
-                    du.state.examples[file_xml] = [du.Example(description_xml)]
 
 def postparse_sectiondef(element: lxml.etree._Element) -> None:
     # Parse all other definitions.
@@ -914,6 +903,15 @@ def postparse_xml(filename: str) -> None:
             group.brief = du.process_brief(element.find("briefdescription"), group)
             group.description = du.process_description(element.find("detaileddescription"), group)
             postparse_sectiondef(element)
+    # Extract examples to latter include in the associated header file.
+    # The examples associated with said header file will be added
+    # to the EXAMPLES man page section of said header file.
+    elif kind == "example":
+        id = element.get("id"); assert id is not None
+        example = du.Example(id)
+        example.brief = du.process_brief(element.find("briefdescription"), example)
+        example.description = du.process_description(element.find("detaileddescription"), example)
+        du.state.compounds[example.id] = example
 
 # Sort groups and pages by the order in which they are defined.
 def parse_index_xml(xmlfile: str) -> None:

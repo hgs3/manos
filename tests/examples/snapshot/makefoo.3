@@ -1,14 +1,14 @@
 .TH "MY PROJECT" "3"
 .SH NAME
-Frobnicate \- frobnicate a foo
+MakeFoo \- construct a foo
 .SH SYNOPSIS
 .nf
 .B #include <example.h>
 .PP
-.BI "void Frobnicate(int " xyz "[64]);"
+.BI "void MakeFoo(void);"
 .fi
 .SH DESCRIPTION
-This function frobnicates a foo and produces a bar.
+This function constructs a foo.
 .SH EXAMPLES
 This is an example found in foo.c source file.
 .PP
@@ -19,6 +19,24 @@ It's a very cool example and you will learn a lot from it!
 #include <stdio.h>
 int main(int argc, char *argv[]) {
     puts("The quick brown fox jumps over the lazy dog.");
+    return 0;
+}
+.EE
+.in
+.PP
+This is an example found in bar.c source file.
+.PP
+.in +4n
+.EX
+#include <stdio.h>
+
+int main(int argc, char *argv[]) {
+    if (argc < 1) {
+        puts("missing required argument");
+        return 1;
+    }
+
+    printf("got: %s\n", argv[1]);
     return 0;
 }
 .EE
