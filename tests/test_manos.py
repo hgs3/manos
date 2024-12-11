@@ -242,6 +242,9 @@ def test_filter() -> None:
 def test_filter_exclude() -> None:
     assert_snapshot("filter", "snapshot-exclude", exclusion_pattern="_.*")
 
+def test_escapes() -> None:
+    assert_snapshot("escapes")
+
 def test_simple() -> None:
     assert_snapshot("simple")
 

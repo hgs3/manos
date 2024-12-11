@@ -6,6 +6,8 @@
  *  Then go browse code on [GitHub](https://github.com) or another source hosting website.
  *
  *  For short code snipets, use [Gist](https://gist.github.com/).
+ * 
+ *  If you like Canonical there is always [Canonical Lanchpad](https://launchpad.net/)!!!
  *
  */
 

@@ -23,12 +23,13 @@ class Text:
 # This is identical to 'Text' except it is output as-is without any special processing.
 # It is intended for literal blocks, like code examples.
 class LiteralText:
-    def __init__(self, source: str, standalone: bool = False) -> None:
-        self.source = source
+    def __init__(self, content: str, standalone: bool = False) -> None:
+        self.content = content
         self.standalone = standalone
 
 class Macro:
     def __init__(self, name: str, argument: Optional[str]) -> None:
+        assert name[0] != ".", "You should omit the dot when appending a macro."
         self.command = name
         self.argument = argument
 
@@ -48,36 +49,13 @@ class Roff:
         self.entries += other.entries
 
     def append_text(self, other: str) -> None:
-        # Special case: if the previous entry was a .UE (end URL) macro and the text
-        # being added is a sentence ending punctuator, then there should be no space
-        # between the URL link and the punctuator. Unfortunatly, if we add the punctuator
-        # to a new line (which is what would happen without this special logic), then the
-        # punctuator will be sperated by a space.
-        if other.startswith(".") or other.startswith("!") or other.startswith("?") or other.startswith(","):
-            if len(self.entries) > 0:
-                macro = self.entries[-1]
-                if isinstance(macro, Macro) and macro.command == "UE":
-                    macro.argument = other[0] # Move the punctuation to the macro.
-                    other = other[1:] # Trim the punctuator form the text.
-        # Special case: if the previous entry is a macro and the text being added begins
-        # with a dot, then the implementation will place said new text on its own line.
-        # This is a problem because that new line begins with dot and therefore Roff
-        # will interpret it as the beginning of a macro. If this situtation happens
-        # then escape the dot so Roff treats it as text.
-        if other.startswith("."):
-            if len(self.entries) > 0:
-                if isinstance(self.entries[-1], Macro):
-                    other = r"\[char46]" + other[1:]  # Escape the first dot.
         self.entries.append(Text(other))
 
     def append_source(self, other: str) -> None:
         self.entries.append(LiteralText(other, True))
 
     def append_macro(self, name: str, argument: Optional[str] = None) -> None:
-        assert name[0] != ".", "You should omit the dot when appending a macro."
-        roff = Roff()
-        roff.entries.append(Macro(name, argument))
-        self.append_roff(roff)
+        self.entries.append(Macro(name, argument))
 
     def append(self, elem: RoffElements) -> None:
         self.entries.append(elem)
@@ -90,7 +68,7 @@ class Roff:
             elif isinstance(entry, Text):
                 copy.append_text(entry.content)
             elif isinstance(entry, LiteralText):
-                copy.append(LiteralText(entry.source, entry.standalone))
+                copy.append(LiteralText(entry.content, entry.standalone))
         return copy
     
     def simplify(self) -> 'Roff':
@@ -139,30 +117,48 @@ class Roff:
                 text += f".{curr.command}"
                 if curr.argument is not None:
                     text += f" {curr.argument}"
-            elif isinstance(curr, LiteralText):
-                # If the previous entry was a macro, then add a new line after it.
-                if isinstance(prev, Macro):
-                    text += "\n"
-                # If the previous entry was code, then append a new line.
-                # This ensures each line of code is seperated onto their own line.
-                elif isinstance(prev, LiteralText):
-                    text += "\n"
-                text += curr.source
-            elif isinstance(curr, Text):
-                # If the previous entry was a macro or source code, then add a new line after it.
-                # This deliminates code/macros from paragraph text.
-                if isinstance(prev, Macro) or (isinstance(prev, LiteralText) and prev.standalone):
-                    text += "\n"
-                text += "\n".join(segment(curr.content))
+            elif isinstance(curr, LiteralText) or isinstance(curr, Text):
+                content = curr.content
+                # Special case: if the previous entry is a macro and the text being added begins
+                # with a dot, then the implementation will place said new text on its own line.
+                # This is a problem because that new line begins with dot and therefore Roff
+                # will interpret it as the beginning of a macro. If this situtation happens
+                # then escape the dot so Roff treats it as text.
+                if content.startswith("."):
+                    if len(self.entries) > 0:
+                        if prev is None or isinstance(prev, Macro):
+                            content = r"\[char46]" + content[1:]  # Escape the first dot.
+                # Same story for single quotes which joins the previous and current line.
+                if content.startswith("'"):
+                    if len(self.entries) > 0:
+                        if prev is None or isinstance(prev, Macro):
+                            content = r"\[char39]" + content[1:]  # Escape the first single quote.
+                # Emit the text.
+                if isinstance(curr, LiteralText):
+                    # If the previous entry was a macro, then add a new line after it.
+                    if isinstance(prev, Macro):
+                        text += "\n"
+                    # If the previous entry was code, then append a new line.
+                    # This ensures each line of code is seperated onto their own line.
+                    elif isinstance(prev, LiteralText):
+                        text += "\n"
+                    text += content
+                elif isinstance(curr, Text):
+                    # If the previous entry was a macro or source code, then add a new line after it.
+                    # This deliminates code/macros from paragraph text.
+                    if isinstance(prev, Macro) or (isinstance(prev, LiteralText) and prev.standalone):
+                        text += "\n"
+                    text += "\n".join(segment(content))
             prev = curr
         return text
 
     def _simplify(self) -> List[RoffElements]:
         keep: List[RoffElements] = []
         prev: Optional[RoffElements] = None
+
+        # Keep only non-blank text lines.
         for curr in self.entries:
             if isinstance(curr, Text):
-                # Only keep non-blank text lines.
                 if len(curr.content.strip()) > 0:
                     keep.append(curr)
                     prev = curr
@@ -178,6 +174,23 @@ class Roff:
                 elif not (isinstance(prev, Macro) and prev.command == curr.command and prev.command == "PP"):
                     keep.append(curr)
                     prev = curr
+
+        # Special case: if the previous entry was a .UE (end URL) macro and the text
+        # being added is a sentence ending punctuator, then there should be no space
+        # between the URL link and the punctuator. Unfortunatly, if we add the punctuator
+        # to a new line (which is what would happen without this special logic), then the
+        # punctuator will be sperated by a space.
+        for curr in keep:
+            if isinstance(curr, Text) or isinstance(curr, LiteralText):
+                # We still check for blank lines because literal text might still start with it.
+                if isinstance(prev, Macro) and prev.command == "UE":
+                    while len(curr.content) > 0 and curr.content[0] in (".", "!", "?", ","):                        
+                        if prev.argument is None:
+                            prev.argument = "" # Avoid appending onto None.
+                        prev.argument += curr.content[0] # Move the punctuation to the macro.
+                        curr.content = curr.content[1:] # Trim the punctuator form the text.
+            prev = curr
+
         # Remove trailing paragraph breaks.
         while len(keep) > 0 and isinstance(keep[-1], Macro) and keep[-1].command == "PP":
             keep.pop()
