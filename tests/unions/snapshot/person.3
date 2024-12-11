@@ -5,12 +5,14 @@ Person
 .nf
 .B #include <None>
 .PP
-.B "union Person {"
-.B "    int age;"
-.B "    union Height height;"
-.B "    char fullname_delimited_by_spaces[64];"
-.B "    int age;"
-.B "    union Height height;"
-.B "    char fullname_delimited_by_spaces[64];"
-.B "};"
+.B union Person {
+.RS
+.B int age;
+.B union Height height;
+.B char fullname_delimited_by_spaces[64];
+.B int age;
+.B union Height height;
+.B char fullname_delimited_by_spaces[64];
+.RE
+.B };
 .fi

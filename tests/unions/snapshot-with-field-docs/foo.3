@@ -5,14 +5,16 @@ Foo
 .nf
 .B #include <None>
 .PP
-.B "union Foo {"
-.B "    int ***waldo[];"
-.B "    const union Foo::Qux qux;"
-.B "    struct Foo bar;"
-.B "    int ***waldo[];"
-.B "    const union Foo::Qux qux;"
-.B "    struct Foo bar;"
-.B "};"
+.B union Foo {
+.RS
+.B int ***waldo[];
+.B const union Foo::Qux qux;
+.B struct Foo bar;
+.B int ***waldo[];
+.B const union Foo::Qux qux;
+.B struct Foo bar;
+.RE
+.B };
 .fi
 .SH DESCRIPTION
 This union has substructres which define fields on their parent union.

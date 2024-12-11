@@ -7,18 +7,20 @@ Modern xUnit testing framework for C11 and beyond.
 .nf
 .B #include <None>
 .PP
-.B "struct TestOptions {"
-.B "    int32_t iterations;"
-.B "    StatusCode exit_status;"
-.B "    int64_t signal;"
-.B "    int timeout;"
-.B "    bool sandbox;"
-.B "    int32_t iterations;"
-.B "    StatusCode exit_status;"
-.B "    int64_t signal;"
-.B "    int timeout;"
-.B "    bool sandbox;"
-.B "};"
+.B struct TestOptions {
+.RS
+.B int32_t iterations;
+.B StatusCode exit_status;
+.B int64_t signal;
+.B int timeout;
+.B bool sandbox;
+.B int32_t iterations;
+.B StatusCode exit_status;
+.B int64_t signal;
+.B int timeout;
+.B bool sandbox;
+.RE
+.B };
 .fi
 .SH DESCRIPTION
 This structure defines configuration options applied to the test.

@@ -7,16 +7,18 @@ Embeddable Unicode Algorithms (libunicorn, -lunicorn)
 .nf
 .B #include <unicorn.h>
 .PP
-.B "enum unistat {"
-.B "    UNI_OK,"
-.B "    UNI_DONE,"
-.B "    UNI_NO_MEMORY,"
-.B "    UNI_NO_SPACE,"
-.B "    UNI_BAD_ENCODING,"
-.B "    UNI_BAD_OPERATION,"
-.B "    UNI_FEATURE_DISABLED,"
-.B "    UNI_MALFUNCTION,"
-.B "};"
+.B enum unistat {
+.RS
+.B UNI_OK,
+.B UNI_DONE,
+.B UNI_NO_MEMORY,
+.B UNI_NO_SPACE,
+.B UNI_BAD_ENCODING,
+.B UNI_BAD_OPERATION,
+.B UNI_FEATURE_DISABLED,
+.B UNI_MALFUNCTION,
+.RE
+.B };
 .fi
 .SH DESCRIPTION
 Most functions in the Unicorn library return an element of this enumeration.

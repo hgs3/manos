@@ -165,14 +165,16 @@ def generate_composite(composite: du.CompositeType) -> None:
     roff.append_macro('nf')
     roff.append_macro('B', f'#include <{composite.header}>')
     roff.append_macro('PP')
-    roff.append_macro('B', f'"{"struct" if composite.is_struct else "union"} {composite.name} {{"')
+    roff.append_macro('B', f'{"struct" if composite.is_struct else "union"} {composite.name} {{')
+    roff.append_macro('RS')
     for field in composite.fields:
         field_string = field.type
         if not field_string.endswith("*"):
             field_string += " "
         field_string += f"{field.name}{field.argsstring}"
-        roff.append_macro('B', f'"    {field_string};"')
-    roff.append_macro('B', '"};"')
+        roff.append_macro('B', f'{field_string};')
+    roff.append_macro('RE')
+    roff.append_macro('B', '};')
     roff.append_macro('fi')
 
     if composite.description is not None:
@@ -217,10 +219,12 @@ def generate_enum(enum: du.Enum) -> None:
     roff.append_macro('nf')
     roff.append_macro('B', f'#include <{enum.header}>')
     roff.append_macro('PP')
-    roff.append_macro('B', f'"enum {enum.name} {{"')
+    roff.append_macro('B', f'enum {enum.name} {{')
+    roff.append_macro('RS')
     for elem in enum.elements:
-        roff.append_macro('B', f'"    {elem.name},"')
-    roff.append_macro('B', '"};"')
+        roff.append_macro('B', f'{elem.name},')
+    roff.append_macro('RE')
+    roff.append_macro('B', '};')
     roff.append_macro('fi')
 
     if enum.description is not None:

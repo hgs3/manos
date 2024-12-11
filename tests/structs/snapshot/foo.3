@@ -5,14 +5,16 @@ Foo
 .nf
 .B #include <None>
 .PP
-.B "struct Foo {"
-.B "    int ***waldo[];"
-.B "    const struct Foo::Qux qux;"
-.B "    struct Foo bar;"
-.B "    int ***waldo[];"
-.B "    const struct Foo::Qux qux;"
-.B "    struct Foo bar;"
-.B "};"
+.B struct Foo {
+.RS
+.B int ***waldo[];
+.B const struct Foo::Qux qux;
+.B struct Foo bar;
+.B int ***waldo[];
+.B const struct Foo::Qux qux;
+.B struct Foo bar;
+.RE
+.B };
 .fi
 .SH DESCRIPTION
 This structure has substructres which define fields on their parent structure.

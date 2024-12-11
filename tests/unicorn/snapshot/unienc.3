@@ -7,17 +7,19 @@ Embeddable Unicode Algorithms (libunicorn, -lunicorn)
 .nf
 .B #include <unicorn.h>
 .PP
-.B "enum unienc {"
-.B "    UNI_SCALAR,"
-.B "    UNI_UTF8,"
-.B "    UNI_UTF16,"
-.B "    UNI_UTF32,"
-.B "    UNI_BIG,"
-.B "    UNI_LITTLE,"
-.B "    UNI_NATIVE,"
-.B "    UNI_TRUST,"
-.B "    UNI_NULIFY,"
-.B "};"
+.B enum unienc {
+.RS
+.B UNI_SCALAR,
+.B UNI_UTF8,
+.B UNI_UTF16,
+.B UNI_UTF32,
+.B UNI_BIG,
+.B UNI_LITTLE,
+.B UNI_NATIVE,
+.B UNI_TRUST,
+.B UNI_NULIFY,
+.RE
+.B };
 .fi
 .SH DESCRIPTION
 Unless documented otherwise, all functions that accept a \f[B]unienc\f[R](3) must observe the following rules:

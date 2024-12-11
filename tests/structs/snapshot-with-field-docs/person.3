@@ -5,14 +5,16 @@ Person
 .nf
 .B #include <None>
 .PP
-.B "struct Person {"
-.B "    int age;"
-.B "    struct Height height;"
-.B "    char fullname_delimited_by_spaces[64];"
-.B "    int age;"
-.B "    struct Height height;"
-.B "    char fullname_delimited_by_spaces[64];"
-.B "};"
+.B struct Person {
+.RS
+.B int age;
+.B struct Height height;
+.B char fullname_delimited_by_spaces[64];
+.B int age;
+.B struct Height height;
+.B char fullname_delimited_by_spaces[64];
+.RE
+.B };
 .fi
 .SH FIELDS
 .TP

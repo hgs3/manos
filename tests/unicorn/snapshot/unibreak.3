@@ -7,11 +7,13 @@ Embeddable Unicode Algorithms (libunicorn, -lunicorn)
 .nf
 .B #include <unicorn.h>
 .PP
-.B "enum unibreak {"
-.B "    UNI_GRAPHEME,"
-.B "    UNI_WORD,"
-.B "    UNI_SENTENCE,"
-.B "};"
+.B enum unibreak {
+.RS
+.B UNI_GRAPHEME,
+.B UNI_WORD,
+.B UNI_SENTENCE,
+.RE
+.B };
 .fi
 .SH DESCRIPTION
 The elements of this enumeration describe the boundaries that can be detected.
