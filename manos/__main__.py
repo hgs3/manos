@@ -673,21 +673,21 @@ def preparse_sectiondef(element: lxml.etree._Element) -> None:
 
 def preparse_xml(filename: str) -> None:
     tree = lxml.etree.parse(filename)
-    element = tree.find("compounddef")
-    if element is None:
+    compounddef = tree.find("compounddef")
+    if compounddef is None:
         return
-    kind = element.get("kind")
+    kind = compounddef.get("kind")
     # Only consider source files (e.g. ignore Markdown files).
-    language = element.get("language")
+    language = compounddef.get("language")
     if language == "C++":
         # Doxygen writes docs for structs and unions in their own individual .xml files.
         if kind in ["struct", "union"]:
-            id = element.get("id")
+            id = compounddef.get("id")
             assert id is not None
             composite = du.CompositeType(id, kind == "struct")
-            composite.name = du.process_text(element.find("compoundname"))
+            composite.name = du.process_text(compounddef.find("compoundname"))
             composite.manpage_name = manpageify(composite)
-            for sectiondef in element.findall("sectiondef"):
+            for sectiondef in compounddef.findall("sectiondef"):
                 for memberdef in sectiondef.findall("memberdef"):
                     field_id = memberdef.get("id")
                     assert field_id is not None
@@ -697,11 +697,20 @@ def preparse_xml(filename: str) -> None:
                     field.argsstring = du.process_text(memberdef.find("argsstring"))
                     field.brief = du.process_brief(memberdef.find("briefdescription"), composite)
                     composite.fields.append(field)
+            # Extract the location.
+            location = compounddef.find("location"); assert location is not None
+            location_file = location.get("file"); assert location_file is not None
+            # Doxygen is iconsistant how it stores file locations.
+            # We want the base name for the man page.
+            if op.args.include_path == "short":
+                location_file = os.path.basename(location_file)
+            composite.header = location_file
+            composite.manpage_name = manpageify(composite)
             register_compund(composite)
         elif kind == "file":
-            preparse_sectiondef(element)
+            preparse_sectiondef(compounddef)
     elif kind == "group":
-        preparse_sectiondef(element)
+        preparse_sectiondef(compounddef)
 
 def parse_sectiondef(element: lxml.etree._Element) -> None:
     for sectiondef in element.findall("sectiondef"):
