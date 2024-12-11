@@ -644,6 +644,10 @@ def preparse_sectiondef(element: lxml.etree._Element) -> None:
             # Extract the location.
             location = memberdef.find("location"); assert location is not None
             location_file = location.get("file"); assert location_file is not None
+            # Doxygen is iconsistant how it stores file locations.
+            # We want the base name for the man page.
+            if op.args.include_path == "short":
+                location_file = os.path.basename(location_file)
             # Create an object for this compound.
             if memberdef.get("kind") == "enum":
                 enum = du.Enum(id, group_id)
@@ -704,6 +708,10 @@ def parse_sectiondef(element: lxml.etree._Element) -> None:
             # Extract the location.
             location = memberdef.find("location"); assert location is not None
             location_file = location.get("file"); assert location_file is not None
+            # Doxygen is iconsistant how it stores file locations.
+            # We want the base name for the man page.
+            if op.args.include_path == "short":
+                location_file = os.path.basename(location_file)
             # Create an object for this compound.
             kind = memberdef.get("kind")
             if kind == "function":
@@ -968,6 +976,8 @@ def exec(doxyfile: str) -> int:
     clone.write("TYPEDEF_HIDES_STRUCT = YES\n")
     # Manos expects structs to always be in a seperate XML document.
     clone.write("INLINE_SIMPLE_STRUCTS = NO\n")
+    # Strip absolute path names from header file paths.
+    clone.write("FULL_PATH_NAMES = NO\n")
     # Dump syntax highlighting information.
     clone.write("XML_PROGRAMLISTING = NO\n")
     clone.write("XML_NS_MEMB_FILE_SCOPE = NO\n")
