@@ -711,6 +711,14 @@ def preparse_xml(filename: str) -> None:
             preparse_sectiondef(compounddef)
     elif kind == "group":
         preparse_sectiondef(compounddef)
+    # Extract examples to latter include in the associated header file.
+    # The examples associated with said header file will be added
+    # to the EXAMPLES man page section of said header file.
+    elif kind == "example":
+        id = compounddef.get("id"); assert id is not None
+        example = du.Example(id)
+        example.brief = du.process_brief(compounddef.find("briefdescription"), example)
+        du.state.compounds[example.id] = example
 
 def parse_sectiondef(element: lxml.etree._Element) -> None:
     for sectiondef in element.findall("sectiondef"):
@@ -928,11 +936,9 @@ def postparse_xml(filename: str) -> None:
     # The examples associated with said header file will be added
     # to the EXAMPLES man page section of said header file.
     elif kind == "example":
-        id = element.get("id"); assert id is not None
-        example = du.Example(id)
-        example.brief = du.process_brief(element.find("briefdescription"), example)
-        example.description = du.process_description(element.find("detaileddescription"), example)
-        du.state.compounds[example.id] = example
+        if id := element.get("id"):
+            example = du.state.compounds[id]
+            example.description = du.process_description(element.find("detaileddescription"), example)
 
 # Sort groups and pages by the order in which they are defined.
 def parse_index_xml(xmlfile: str) -> None:
