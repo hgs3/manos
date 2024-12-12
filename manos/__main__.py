@@ -720,6 +720,18 @@ def preparse_xml(filename: str) -> None:
         example.brief = du.process_brief(compounddef.find("briefdescription"), example)
         du.state.compounds[example.id] = example
 
+# Find the first alias compound child element.
+def find_aliased_compound(elem: lxml.etree._Element) -> Optional[str]:
+    if elem.tag == "ref":
+        refid = elem.get("refid")
+        assert refid is not None
+        return refid
+    for child in elem:
+        ref = find_aliased_compound(child)
+        if ref is not None:
+            return ref
+    return None
+
 def parse_sectiondef(element: lxml.etree._Element) -> None:
     for sectiondef in element.findall("sectiondef"):
         for memberdef in sectiondef.findall("memberdef"):
@@ -754,17 +766,6 @@ def parse_sectiondef(element: lxml.etree._Element) -> None:
                 function.brief = du.process_brief(memberdef.find("briefdescription"), function)
                 register_compund(function)
             elif kind == "typedef":
-                def find_aliased_compound(elem: lxml.etree._Element) -> Optional[str]:
-                    if elem.tag == "ref":
-                        refid = elem.get("refid")
-                        assert refid is not None
-                        return refid
-                    for child in elem:
-                        ref = find_aliased_compound(child)
-                        if ref is not None:
-                            return ref
-                    return None
-
                 typedef = du.Typedef(id, group_id)
                 typedef.name = du.process_text(memberdef.find("name"))
                 typedef.brief = du.process_brief(memberdef.find("briefdescription"), typedef)
@@ -884,8 +885,13 @@ def postparse_sectiondef(element: lxml.etree._Element) -> None:
             if id := memberdef.get("id"):
                 if id in du.state.compounds:
                     compound = du.state.compounds[id]
-                    if isinstance(compound, du.Function) or isinstance(compound, du.Typedef) or isinstance(compound, du.Define) or isinstance(compound, du.Variable):
-                        compound = du.state.compounds[id]
+                    if isinstance(compound, du.Function):
+                        compound.description = du.process_description(memberdef.find("detaileddescription"), compound)
+                        for param_xml in memberdef.findall("param"):
+                            type_refid = find_aliased_compound(param_xml.find("type"))
+                            if type_refid is not None and type_refid in du.state.compounds:
+                                compound.referenced.append(du.state.compounds[type_refid])
+                    elif isinstance(compound, du.Typedef) or isinstance(compound, du.Define) or isinstance(compound, du.Variable):
                         compound.description = du.process_description(memberdef.find("detaileddescription"), compound)
                     elif isinstance(compound, du.Enum):
                         compound.description = du.process_description(memberdef.find("detaileddescription"), compound)
