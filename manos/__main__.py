@@ -888,9 +888,11 @@ def postparse_sectiondef(element: lxml.etree._Element) -> None:
                     if isinstance(compound, du.Function):
                         compound.description = du.process_description(memberdef.find("detaileddescription"), compound)
                         for param_xml in memberdef.findall("param"):
-                            type_refid = find_aliased_compound(param_xml.find("type"))
-                            if type_refid is not None and type_refid in du.state.compounds:
-                                compound.referenced.append(du.state.compounds[type_refid])
+                            type_xml = param_xml.find("type")
+                            if type_xml is not None:
+                                type_refid = find_aliased_compound(type_xml)
+                                if type_refid is not None and type_refid in du.state.compounds:
+                                    compound.referenced.append(du.state.compounds[type_refid])
                     elif isinstance(compound, du.Typedef) or isinstance(compound, du.Define) or isinstance(compound, du.Variable):
                         compound.description = du.process_description(memberdef.find("detaileddescription"), compound)
                     elif isinstance(compound, du.Enum):
