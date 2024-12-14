@@ -280,7 +280,7 @@ def generate_typedef(typedef: du.Typedef) -> None:
     # The Doxygen typedef argsstring, when it presents a function prototype, does not
     # tokenize the paramters for us so instead we'll tokenize them ourselves and
     # determine if any match the name of the referenced parameter.
-    lexer = CLexer() # type: ignore
+    lexer = CLexer() # type: ignore[no-untyped-call,unused-ignore]
     for _, token in lexer.get_tokens(typedef.argsstring):
         # There shouldn't be any new lines in the argstring, but Pygments is adding them...
         if token == '\n':
@@ -888,9 +888,11 @@ def postparse_sectiondef(element: lxml.etree._Element) -> None:
                     if isinstance(compound, du.Function):
                         compound.description = du.process_description(memberdef.find("detaileddescription"), compound)
                         for param_xml in memberdef.findall("param"):
-                            type_refid = find_aliased_compound(param_xml.find("type"))
-                            if type_refid is not None and type_refid in du.state.compounds:
-                                compound.referenced.append(du.state.compounds[type_refid])
+                            type_xml = param_xml.find("type")
+                            if type_xml is not None:
+                                type_refid = find_aliased_compound(type_xml)
+                                if type_refid is not None and type_refid in du.state.compounds:
+                                    compound.referenced.append(du.state.compounds[type_refid])
                     elif isinstance(compound, du.Typedef) or isinstance(compound, du.Define) or isinstance(compound, du.Variable):
                         compound.description = du.process_description(memberdef.find("detaileddescription"), compound)
                     elif isinstance(compound, du.Enum):
