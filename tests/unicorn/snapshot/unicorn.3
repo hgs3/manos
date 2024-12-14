@@ -1,0 +1,266 @@
+.TH "UNICORN" "3"
+.SH NAME
+unicorn.h \- public interface for the Unicorn library
+.SH LIBRARY
+Embeddable Unicode Algorithms (libunicorn, -lunicorn)
+.SH SYNOPSIS
+.nf
+.B #include <unicorn.h>
+.fi
+.SH DESCRIPTION
+Unicorn is a Unicode® library written in C99 with no external dependencies.
+It is highly customizable: support for Unicode algorithms and character properties can be toggled individually.
+Disabling features reduces the size of library which helps deploy it on hardware with limited resources, like embedded systems and IoT devices.
+You can customize which features Unicorn is built with by editing the \f[C]features.json\f[R] file found in the source distribution of Unicorn.
+The detailed schema for this JSON file is
+.UR https://railgunlabs.com/unicorn/manual/feature-customization/
+documented online
+.UE .
+.PP
+Unicorn is compliant with the MISRA C:2012 standards.
+It honors all Required, Mandatory, and most Advisory rules.
+Deviations are documented here on the
+.UR https://railgunlabs.com/unicorn/manual/misra-compliance/
+projects webpage
+.UE .
+Users are encouraged to audit Unicorn and verify its level of conformance is acceptable.
+.SS Library Configuration
+Unicorn defines several foundational types that are used throughout the library.
+An example would be the \f[B]unistat\f[R](3) type which represents a status code.
+Most functions in Unicorn return a \f[B]unistat\f[R](3) value making for a consistent approach to error reporting.
+Global features of the library can be queried and configured at runtime.
+.PP
+Most functions in Unicorn return an element from the \f[B]unistat\f[R](3) enumeration indicating the success or failure status of an operation.
+Each function documents the possible status codes it can return.
+This narrows down which codes a caller must check for.
+.PP
+Unicorn is designed with performance in mind and minimizes dynamic memory allocations where possible.
+In fact, most functions do not allocate memory at all!
+Functions that can allocate memory are identified by having \f[B]UNI_NO_MEMORY\f[R] listed as a potential return value in their documentation.
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBuni_getversion\fR(3);T{
+Library version.
+T}
+
+.T&
+l l.
+\fBEnumerations\fR;\fBDescription\fR
+_
+\fBunistat\fR(3);T{
+Status code.
+T}
+\fBunienc\fR(3);T{
+Text attributes.
+T}
+.TE
+.SS Case Mapping
+Case mapping is the process of transforming characters from one case to another for comparison or presentation.
+.PP
+Case conversion transforms text into a particular cased form.
+The resulting text is presentable to an end user.
+.PP
+There are three case conversion operations:
+.PP
+.RS
+.IP \[bu] 2
+\f[B]UNI_LOWER\f[R]
+.IP \[bu] 2
+\f[B]UNI_TITLE\f[R]
+.IP \[bu] 2
+\f[B]UNI_UPPER\f[R]
+.RE
+.PP
+Case conversion is context sensitive which means characters are mapped based on their surrounding characters.
+.PP
+Support for case conversion must be enabled in the JSON configuration file.
+Where string values “lower”, “title”, and “upper” correspond to the \f[B]UNI_LOWER\f[R], \f[B]UNI_TITLE\f[R], and \f[B]UNI_UPPER\f[R] constants, respectively.
+.PP
+.in +4n
+.EX
+{
+    "algorithms": {
+        "caseConversion": [
+            "lower",
+            "title",
+            "upper"
+        ],
+    }
+}
+.EE
+.in
+.PP
+Case folding transforms text into a form intended for case-insensitive string comparisons.
+Case folding is primarily based on the simple lowercase mappings, but there are instances where uppercase characters are used such as Cherokee characters.
+A case folded string must never be displayed to an end-user.
+It’s only intended for internal case-insensitive comparisons.
+.PP
+There are two variations of case folding supported by Unicorn:
+.PP
+.RS
+.IP \[bu] 2
+\f[B]UNI_DEFAULT\f[R]
+.IP \[bu] 2
+\f[B]UNI_CANONICAL\f[R]
+.RE
+.PP
+Default case folding does not preserve normalization forms.
+This means a string in a particular Unicode normalization form is not guaranteed to be in that same normalization form after being casefolded.
+.PP
+Support for case folding must be enabled in the JSON configuration file.
+Where string values “default” and “canonical” correspond to the \f[B]UNI_DEFAULT\f[R] and \f[B]UNI_CANONICAL\f[R] constants, respectively.
+.PP
+.in +4n
+.EX
+{
+    "algorithms": {
+        "caseFolding": [
+            "default",
+            "canonical"
+        ],
+    }
+}
+.EE
+.in
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBuni_caseconv\fR(3);T{
+Perform case conversion.
+T}
+\fBuni_casefold\fR(3);T{
+Perform case folding.
+T}
+
+.T&
+l l.
+\fBEnumerations\fR;\fBDescription\fR
+_
+\fBunicaseconv\fR(3);T{
+Case conversion operations.
+T}
+\fBunicasefold\fR(3);T{
+Case folding operations.
+T}
+.TE
+.SS Collation
+Collation is the process and function of determining the sorting order of strings.
+Collation varies according to language and culture: Germans, French and Swedes sort the same characters differently.
+Unicorn is not an internationalization library therefore it does not contain language specific rules for sorting.
+Instead, it uses the Default Collation Element table (DUCET), which is data specifying the “default” collation order for all Unicode characters.
+The goal of DUCET is to provide a reasonable default ordering for all scripts.
+.PP
+To address the complexities of language-sensitive sorting, a multilevel comparison algorithm is employed.
+In comparing two strings, the most important feature is the identity of the base letters.
+For example, the difference between an A and a B. Accent differences are typically ignored, if the base letters differ.
+Case differences (uppercase versus lowercase) are typically ignored, if the base letters or their accents differ.
+The number of levels that are considered in comparison is known as the strength and are programmatically indicating by the elements of the \f[B]unistrength\f[R](3) enumeration.
+.PP
+Collation is one of the most performance-critical features in a system.
+Consider the number of comparison operations that are involved in sorting or searching large databases.
+When comparing strings multiple times it’s recommended to generate and cache a sort key.
+A sort key is an array of unsigned 16-bit integers that is generated from a single string in combination with other collation settings.
+Sort keys must be generated with the same settings for their order to make sense.
+Two sort keys can be compared to produce either a less than, greater than, or equal to result.
+This result can be used with a sorting algorithm, like merge sort, to sort a collection of strings.
+.PP
+Sort keys are generated with \f[B]uni_sortkeymk\f[R](3).
+This function accepts a string, collation settings, and produces the 16-bit sort key.
+.PP
+.in +4n
+.EX
+const char *string = "The quick brown fox jumps over the lazy dog.";
+uint16_t sortkey[16];
+unisize sortkey_len = 16;
+uni_sortkeymk(string, -1, UNI_UTF8, UNI_PRIMARY, UNI_SHIFTED, NULL, &sortkey_len);
+.EE
+.in
+.PP
+Once two sort keys are generated, they can be compared with \f[B]uni_sortkeycmp\f[R](3).
+.PP
+In the case of comparing one-off pairs of strings, generating a sort key makes less sense.
+For these cases, a one-off comparison can be made using \f[B]uni_collate\f[R](3).
+This function is conceptually like the \f[B]strcoll\f[R](3) function provided by the C standard library.
+.PP
+The Unicode Collation Algorithm provides a complete, unambiguous, specified ordering for all characters.
+Canonical decomposition is performed as part of the algorithm therefore whether strings are normalized or not is irrelevant.
+.PP
+The relationship between two strings (two sort keys) is stable between versions of Unicode, however, the 16-bit values of a sort key may change.
+If sort keys are retained in persistent storage, it is recommended to store the Unicode version they were generated against.
+If the current version of the standard does not match what is stored, then all sort keys must be regenerated.
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBuni_sortkeymk\fR(3);T{
+Make sort key.
+T}
+\fBuni_sortkeycmp\fR(3);T{
+Compares sort keys.
+T}
+\fBuni_collate\fR(3);T{
+Compare strings for sorting.
+T}
+
+.T&
+l l.
+\fBEnumerations\fR;\fBDescription\fR
+_
+\fBunistrength\fR(3);T{
+Number of levels to be considered in comparison.
+T}
+\fBuniweighting\fR(3);T{
+Collation weighting algorithm.
+T}
+.TE
+.SS Segmentation
+A string of Unicode-encoded text often needs to be broken up into text elements programmatically.
+Common examples of text elements include user-perceived characters, words, and sentences.
+Where these text elements begin and end is called the boundary and the process of boundary determination is called segmentation.
+.PP
+The precise determination of text elements varies according to orthographic conventions for a given script or language.
+The goal of matching user perceptions cannot always be met exactly because the text alone does not always contain enough information to unambiguously decide boundaries.
+For example, the period character (U+002E FULL STOP) is used ambiguously, sometimes for end-of-sentence purposes, sometimes for abbreviations, and sometimes for numbers.
+In most cases, however, programmatic text boundaries can match user perceptions quite closely, although sometimes the best that can be done is to not surprise the user.
+.PP
+Unicorn supports grapheme, word, and sentence segmentation.
+These text elements are identified by the following constants:
+.PP
+.RS
+.IP \[bu] 2
+\f[B]UNI_GRAPHEME\f[R]
+.IP \[bu] 2
+\f[B]UNI_WORD\f[R]
+.IP \[bu] 2
+\f[B]UNI_SENTENCE\f[R]
+.RE
+.PP
+The algorithms for word and sentence segmentation are intended for languages that use white space to delimit words.
+Thai, Lao, Khmer, Myanmar, and ideographic scripts such as Japanese and Chinese do not typically use spaces between words and require language-specific break rules.
+Unicorn is not an internationalization library and therefore does not include rules specific to these languages.
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBuni_nextbrk\fR(3);T{
+Advances the iterator to the next boundary.
+T}
+\fBuni_prevbrk\fR(3);T{
+Sets the iterator position to the preceding boundary.
+T}
+
+.T&
+l l.
+\fBEnumerations\fR;\fBDescription\fR
+_
+\fBunibreak\fR(3);T{
+Detectable text elements.
+T}
+.TE

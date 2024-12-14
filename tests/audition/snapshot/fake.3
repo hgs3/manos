@@ -1,0 +1,33 @@
+.TH "AUDITION" "3"
+.SH NAME
+FAKE \- redirects all function calls to a mock function
+.SH LIBRARY
+Modern xUnit testing framework for C11 and beyond.
+.SH SYNOPSIS
+.nf
+.B #include <audition.h>
+.PP
+.BI "#define FAKE(" FUNC ", " FAKE ");"
+.fi
+.SH DESCRIPTION
+This macro allows detouring function calls to another function known as the mock function.
+The signature of the mock function must be identical to the function being mocked otherwise the behavior is undefined.
+Depending upon what compiler extensions are available and the version of the C standard being built against, Audition can error if the signatures do not match.
+.PP
+This function-like macro is intended to be called from the body of a test case or fixture.
+Invoking it elsewhere is undefined.
+.PP
+.in +4n
+.EX
+int foo(void); // forward declaration
+
+static int mock_foo(void) // mock function
+{
+    return 123; // hard-coded return value
+}
+
+/* ... */
+
+FAKE(foo, mock_foo) // redirect foo() to mock_foo()
+.EE
+.in

@@ -1,0 +1,51 @@
+.TH "FROBLE" "3"
+.SH NAME
+dood.h \- create and manipulate doodad objects
+.SH LIBRARY
+Create and manipulate Frobs (libfrob, -lfrob)
+.SH SYNOPSIS
+.nf
+.B #include <dood.h>
+.fi
+.SH DESCRIPTION
+Doodads are little gizmos of nothingness.
+They don't do much by themselves but when combined with a \f[B]Frob\f[R](3) they form the building blocks of something much more complex.
+.SS Doodads
+Doodads are little gizmos of nothingness.
+They don't do much by themselves but when combined with a \f[B]Frob\f[R](3) they form the building blocks of something much more complex.
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBdoodad_new\fR(3);T{
+Construct a Doodad object.
+T}
+\fBdoodad_free\fR(3);T{
+Free a Doodad object.
+T}
+\fBdoodad_assemble\fR(3);T{
+Assemble a Doodad object.
+T}
+
+.T&
+l l.
+\fBEnumerations\fR;\fBDescription\fR
+_
+\fBResult\fR(3);T{
+Possible Doodad assembly results.
+T}
+
+.T&
+l l.
+\fBVariables\fR;\fBDescription\fR
+_
+\fBDoodadFlagDefault\fR(3);T{
+The default Doodad configuration.
+T}
+\fBDoodadFlagAssembled\fR(3);T{
+Flag indicating the Doodad should come preassembled.
+T}
+.TE
+.SH SEE ALSO
+.BR Frob (3)

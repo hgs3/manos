@@ -1,0 +1,37 @@
+.TH "FROBLE" "3"
+.SH NAME
+froble.h \- create and manipulate frob objects
+.SH LIBRARY
+Create and manipulate Frobs (libfrob, -lfrob)
+.SH SYNOPSIS
+.nf
+.B #include <froble.h>
+.fi
+.SH DESCRIPTION
+The \f[B]Frob\f[R](3) objects are constructed using the \f[B]frob_new\f[R](3) function.
+Frob objects can be used to manipulate doodads which are constructed independntly using \f[B]doodad_new\f[R](3).
+Once a \f[B]Frob\f[R](3) is constructed you can use it to manipulate one or more \f[B]Doodad\f[R](3).
+.SS Frobnicate
+The \f[B]Frob\f[R](3) objects are constructed using the \f[B]frob_new\f[R](3) function.
+Frob objects can be used to manipulate doodads which are constructed independntly using \f[B]doodad_new\f[R](3).
+Once a \f[B]Frob\f[R](3) is constructed you can use it to manipulate one or more \f[B]Doodad\f[R](3).
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBfrob_new\fR(3);T{
+Construct a Frob object.
+T}
+\fBfrob_free\fR(3);T{
+Free a Frob object.
+T}
+\fBfrob_set_doodad\fR(3);T{
+Associate a doodad with a frob.
+T}
+.TE
+.SH SEE ALSO
+.BR Frob (3),
+.BR frob_new (3),
+.BR doodad_new (3),
+.BR Doodad (3)

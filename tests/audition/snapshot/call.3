@@ -1,0 +1,19 @@
+.TH "AUDITION" "3"
+.SH NAME
+CALL \- call the original function being mocked
+.SH LIBRARY
+Modern xUnit testing framework for C11 and beyond.
+.SH SYNOPSIS
+.nf
+.B #include <audition.h>
+.PP
+.BI "#define CALL(" FUNC ", " ... ");"
+.fi
+.SH DESCRIPTION
+The original implementation of \f[I]FUNC\f[R] is invoked bypassing any registered mock.
+If \f[I]FUNC\f[R] is not mocked, then it is invoked directly.
+.PP
+The return value (if any) is discarded.
+To retrieve it use \f[B]CALL_GET\f[R](3) instead.
+.SH SEE ALSO
+.BR CALL_GET (3)

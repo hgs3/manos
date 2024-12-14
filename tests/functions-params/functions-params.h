@@ -14,3 +14,12 @@
  */
 int close_me(int fd, int flags);
 
+/*! \brief Copies a buffer.
+ *
+ *  Copies content from file descriptors \p fds to \p dest.
+ *
+ *  \param[in] dest Destination bufer.
+ *  \param[in] fds File descriptors.
+ *  \return Pointer to \p dest.
+ */
+const char *copy_me(char dest[64], int ***fds[2]);

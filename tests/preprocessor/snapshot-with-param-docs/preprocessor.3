@@ -1,0 +1,29 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+preprocessor.h \- preprocessor definition tests
+.SH SYNOPSIS
+.nf
+.B #include <preprocessor.h>
+.fi
+.SH DESCRIPTION
+The C preprocessor is the macro preprocessor for several computer programming languages, such as C, Objective-C, C++, and a variety of Fortran languages.
+The preprocessor provides inclusion of header files, macro expansions, conditional compilation, and line control.
+.PP
+In many C implementations, it is a separate program invoked by the compiler as the first part of translation.
+.PP
+The language of preprocessor directives is only weakly related to the grammar of C, and so is sometimes used to process other kinds of text files.
+.TS
+tab(;);
+l l.
+\fBDefines\fR;\fBDescription\fR
+_
+\fBENABLE_AWESOME_FEATURE\fR(3);T{
+This preproccessor definition is defined when the super awsome feature is enabled.
+T}
+\fBINVALID_KEY\fR(3);T{
+This preproccessor macro evaluates to a constant.
+T}
+\fBADD\fR(3);T{
+Sum two numbers and return the result.
+T}
+.TE

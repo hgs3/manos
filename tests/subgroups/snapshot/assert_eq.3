@@ -1,0 +1,14 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+assert_eq \- check two integers, floating-point numbers, or pointers to determine if \f[I]X\f[R] == \f[I]Y\f[R]
+.SH SYNOPSIS
+.nf
+.B #include <subgroups.h>
+.PP
+.BI "void assert_eq(int " X ", int " Y ", ...);"
+.fi
+.SH DESCRIPTION
+If \f[I]X\f[R] != \f[I]Y\f[R], the test case is aborted.
+If you need to compare floats, use \f[B]assert_eq_approx\f[R](3).
+.SH SEE ALSO
+.BR assert_eq_approx (3)

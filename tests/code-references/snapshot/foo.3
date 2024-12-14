@@ -1,0 +1,26 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+Foo
+.SH SYNOPSIS
+.nf
+.B #include <code-references.h>
+.PP
+.B struct Foo {
+.RS
+.B int bar;
+.B int bar;
+.RE
+.B };
+.fi
+.SH DESCRIPTION
+The following is a code example that references \f[B]Foo\f[R](3) and \f[B]foobar\f[R](3).
+.PP
+.in +4n
+.EX
+struct Foo fb = {0};
+fb.bar = 42;
+foobar(&fb);
+.EE
+.in
+.SH SEE ALSO
+.BR foobar (3)

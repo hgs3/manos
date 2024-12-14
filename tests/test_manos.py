@@ -27,8 +27,9 @@ import os
 
 class Params(TypedDict, total=False):
     function_parameters: bool
-    macro_parameters: bool
+    subsections: bool
     composite_fields: bool
+    styles: bool
     topic: Optional[str]
     section: int
     include_path: str
@@ -112,7 +113,10 @@ def test_empty() -> None:
     assert_snapshot("empty")
 
 def test_styling() -> None:
-    assert_snapshot("styling")
+    assert_snapshot("styling", "snapshot", styles=True)
+
+def test_styling_disabled() -> None:
+    assert_snapshot("styling", "snapshot-without-styling", styles=False)
 
 def test_lists_ordered() -> None:
     assert_snapshot("lists-ordered")
@@ -126,17 +130,26 @@ def test_links() -> None:
 def test_sections() -> None:
     assert_snapshot("sections")
 
+def test_sections_included() -> None:
+    assert_snapshot("sections", "snapshot-subsections", subsections=True)
+
 def test_deprecated() -> None:
     assert_snapshot("deprecated")
 
 def test_codeblock() -> None:
     assert_snapshot("codeblock")
 
+def test_tables() -> None:
+    assert_snapshot("tables")
+
 def test_code_references() -> None:
     assert_snapshot("code-references")
 
 def test_dangling_punctuation() -> None:
     assert_snapshot("dangling-punctuation")
+
+def test_dangling_punctuation_with_styles() -> None:
+    assert_snapshot("dangling-punctuation", "snapshot-with-styles", styles=True)
 
 def test_inline_code() -> None:
     assert_snapshot("inline-code")
@@ -181,7 +194,7 @@ def test_enums() -> None:
     assert_snapshot("enums")
 
 def test_variables() -> None:
-    assert_snapshot("variables")    
+    assert_snapshot("variables")
 
 def test_typedefs() -> None:
     assert_snapshot("typedefs")
@@ -190,7 +203,10 @@ def test_preprocessor() -> None:
     assert_snapshot("preprocessor")
 
 def test_preprocessor_with_param_docs() -> None:
-    assert_snapshot("preprocessor", "snapshot-with-param-docs", macro_parameters=True)
+    assert_snapshot("preprocessor", "snapshot-with-param-docs", function_parameters=True)
+
+def test_subgroups() -> None:
+    assert_snapshot("subgroups")
 
 def test_unsupported_commands() -> None:
     assert_snapshot("unsupported-commands")
@@ -226,6 +242,9 @@ def test_filter() -> None:
 def test_filter_exclude() -> None:
     assert_snapshot("filter", "snapshot-exclude", exclusion_pattern="_.*")
 
+def test_escapes() -> None:
+    assert_snapshot("escapes")
+
 def test_simple() -> None:
     assert_snapshot("simple")
 
@@ -243,18 +262,24 @@ def test_fullpath() -> None:
                         ("STRIP_FROM_PATH", os.path.dirname(os.path.abspath(__file__))),
                     ])
 
+def test_audition() -> None:
+    assert_snapshot("audition")
+
+def test_unicorn() -> None:
+    assert_snapshot("unicorn")
+
 # Intentionally exclude all XML files.
 def test_no_xml(capsys: pytest.CaptureFixture[str]) -> None:
     os.chdir(os.path.join(WORKING_DIR, "empty"))
     assert process(os.path.join(WORKING_DIR, "empty", "Doxyfile"), exclusion_pattern=".*xml") == 1
-    assert capsys.readouterr().err == "error: no XML files match the pattern\n"
+    assert "error: no XML files match the pattern\n" in capsys.readouterr().err
 
 def test_no_doxygen_installed(mocker: pytest_mock.MockFixture, capsys: pytest.CaptureFixture[str]) -> None:
     mocker.patch("shutil.which").return_value = None
     assert process(os.path.join(WORKING_DIR, "empty", "Doxyfile")) == 1
-    assert capsys.readouterr().err == "error: could not find doxygen;\n       please install it https://www.doxygen.nl/\n"
+    assert capsys.readouterr().err == "error: could not find Doxygen\n       please install it https://www.doxygen.nl/\n"
 
 def test_copyfile_failed(mocker: pytest_mock.MockFixture, capsys: pytest.CaptureFixture[str]) -> None:
     mocker.patch("shutil.copyfile").side_effect = Exception('Boom!')
     assert process(os.path.join(WORKING_DIR, "empty", "Doxyfile")) == 1
-    assert capsys.readouterr().err == "error: cannot write to the directory of the doxygen configuration file\n"
+    assert capsys.readouterr().err == "error: cannot write to the directory of the Doxygen configuration file\n"

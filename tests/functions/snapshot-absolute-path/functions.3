@@ -1,0 +1,36 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+functions.h \- various function signatures
+.SH SYNOPSIS
+.nf
+.B #include <functions.h>
+.fi
+.SH DESCRIPTION
+This file attempts to test against various function signatures.
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBnop\fR(3);T{
+Does nothing.
+T}
+\fBnop2\fR(3);T{
+Does nothing but accepts arguments.
+T}
+\fBfoo\fR(3);T{
+Cast to a frob.
+T}
+\fBbar\fR(3);T{
+Cast to a Foo.
+T}
+\fBbaz\fR(3);T{
+Do the thing.
+T}
+\fBprintln\fR(3);T{
+Print some formatted text.
+T}
+\fBchkerr\fR(3);T{
+Check for errors.
+T}
+.TE

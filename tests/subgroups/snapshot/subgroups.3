@@ -1,0 +1,52 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+subgroups.h \- this header defines the full API for the library
+.SH SYNOPSIS
+.nf
+.B #include <subgroups.h>
+.fi
+.SH DESCRIPTION
+The main header file for the library.
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBfake\fR(3);T{
+Fake a function.
+T}
+.TE
+.SS Assertions
+Assertions are statements that check whether a particular condition holds true during the execution of tests.
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBabort\fR(3);T{
+Abort a test case.
+T}
+\fBfail\fR(3);T{
+Fail a test case.
+T}
+.TE
+.SS Value Assertions
+Compare integers, floating-point numbers, pointers, and booleans.
+.TS
+tab(;);
+l l.
+\fBFunctions\fR;\fBDescription\fR
+_
+\fBassert_eq\fR(3);T{
+Check two integers, floating-point numbers, or pointers to determine if \f[I]X\f[R] == \f[I]Y\f[R].
+T}
+\fBassert_eq_approx\fR(3);T{
+Check two floating-point numbers to determine if \f[I]X\f[R] ≈ \f[I]Y\f[R] with the specified tolerance.
+T}
+\fBexpect_eq\fR(3);T{
+Check two integers, floating-point numbers, or pointers to determine if \f[I]X\f[R] == \f[I]Y\f[R].
+T}
+\fBexpect_eq_approx\fR(3);T{
+Check two floating-point numbers to determine if \f[I]X\f[R] ≈ \f[I]Y\f[R] with the specified tolerance.
+T}
+.TE

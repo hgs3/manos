@@ -1,0 +1,14 @@
+.TH "UNICORN" "3"
+.SH NAME
+uni_getversion \- library version
+.SH LIBRARY
+Embeddable Unicode Algorithms (libunicorn, -lunicorn)
+.SH SYNOPSIS
+.nf
+.B #include <unicorn.h>
+.PP
+.BI "void uni_getversion(int *" major ", int *" minor ", int *" patch ");"
+.fi
+.SH DESCRIPTION
+Retrieve the major, minor, and patch version of the Unicorn library and writes them to \f[I]major\f[R], \f[I]minor\f[R], and \f[I]patch\f[R].
+Null arguments are ignored.

@@ -1,0 +1,18 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+Person
+.SH SYNOPSIS
+.nf
+.B #include <unions.h>
+.PP
+.B union Person {
+.RS
+.B int age;
+.B union Height height;
+.B char fullname_delimited_by_spaces[64];
+.B int age;
+.B union Height height;
+.B char fullname_delimited_by_spaces[64];
+.RE
+.B };
+.fi

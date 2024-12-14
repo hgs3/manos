@@ -1,0 +1,19 @@
+.TH "AUDITION" "3"
+.SH NAME
+CALL_GET \- call the original function being mocked and save its return value
+.SH LIBRARY
+Modern xUnit testing framework for C11 and beyond.
+.SH SYNOPSIS
+.nf
+.B #include <audition.h>
+.PP
+.BI "#define CALL_GET(" FUNC ", " RESULT ", " ... ");"
+.fi
+.SH DESCRIPTION
+The original implementation of \f[I]FUNC\f[R] is invoked bypassing any registered mock.
+If \f[I]FUNC\f[R] is not mocked, then it is invoked directly.
+The return value is stored in \f[I]RESULT\f[R].
+.PP
+If \f[I]FUNC\f[R] does not return a value or the return value isn't needed, then use \f[B]CALL\f[R](3).
+.SH SEE ALSO
+.BR CALL (3)

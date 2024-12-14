@@ -6,7 +6,23 @@ Dates are represented via [ISO 8601](https://www.iso.org/iso-8601-date-and-time-
 
 ## [0.2.0] - ???
 
-To be determined...
+### Added
+
+* Introducing output for Doxygen tables.
+* Added the `--with-styles` option to include bold, italic, underline, and strikethrough styles in the output.
+
+### Changed
+
+* Remove the `.h` from the header files man page name.
+* Generating separate man pages for enumerations, structures, unions, typedefs, and variables.
+* Merged the `--macro-params` option with `--with-parameters`.
+* Renamed the `--function-params` option to `--with-parameters`.
+* Renamed the `--composite-fields` option to `--with-fields`.
+* Raising Doxygen version requirements from v1.9.x to v1.12.x.
+
+### Fixed
+
+* Fixing a bug where punctuation was separated from the URL link it followed.
 
 ## [0.1.0] - 2024-04-06
 

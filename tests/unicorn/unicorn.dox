@@ -1,0 +1,926 @@
+/*! \file unicorn.h
+ *  \brief Public interface for the Unicorn library.
+ *
+ *  Unicorn is a Unicode® library written in C99 with no external dependencies.
+ *  It is highly customizable: support for Unicode algorithms and character properties can be toggled individually.
+ *  Disabling features reduces the size of library which helps deploy it on hardware with limited resources, like embedded systems and IoT devices.
+ *  You can customize which features Unicorn is built with by editing the \c features.json file found in the source distribution of Unicorn.
+ *  The detailed schema for this JSON file is [documented online](https://railgunlabs.com/unicorn/manual/feature-customization/).
+ *
+ *  Unicorn is compliant with the MISRA C:2012 standards.
+ *  It honors all Required, Mandatory, and most Advisory rules.
+ *  Deviations are documented here on the [projects webpage](https://railgunlabs.com/unicorn/manual/misra-compliance/).
+ *  Users are encouraged to audit Unicorn and verify its level of conformance is acceptable.
+ *
+ *  \defgroup GeneralAPI Library Configuration
+ *  \defgroup NormalizationAPI Normalization
+ *  \defgroup CaseMappingAPI Case Mapping
+ *  \defgroup CollationAPI Collation
+ *  \defgroup SegmentsAPI Segmentation
+ *  \defgroup CharacterAPI Character Properties
+ *  \defgroup CompressionAPI Compression
+ *  \defgroup EncodingAPI Text Encodings
+ */
+
+/*! \addtogroup GeneralAPI
+ *  \brief Global library configuration.
+ *
+ *  Unicorn defines several foundational types that are used throughout the library.
+ *  An example would be the #unistat type which represents a status code.
+ *  Most functions in Unicorn return a #unistat value making for a consistent approach to error reporting.
+ *  Global features of the library can be queried and configured at runtime.
+ *
+ *  \section status-codes Status Codes
+ * 
+ *  Most functions in Unicorn return an element from the #unistat enumeration indicating the success or failure status of an operation.
+ *  Each function documents the possible status codes it can return.
+ *  This narrows down which codes a caller must check for.
+ *
+ *  \section dynamic-memory-allocation Dynamic Memory Allocation
+ * 
+ *  Unicorn is designed with performance in mind and minimizes dynamic memory allocations where possible.
+ *  In fact, most functions do not allocate memory at all!
+ *  Functions that _can_ allocate memory are identified by having #UNI_NO_MEMORY listed as a potential return value in their documentation.
+ *
+ *  @{
+ */
+
+/*! \typedef uint32_t unichar
+ *  \brief Code point.
+ *
+ *  This integer represents a Unicode code point or Unicode scalar value depending upon its use.
+ *  Unicode code points are integers in the inclusive range `[0,10FFFF]`.
+ *  Unicode scalar values are code points excluding surrogate characters.
+ *
+ *  The integer type used as the underlying storage for this type is configurable.
+ *  This helps simplify integration with existing applications which may already have defined their
+ *  own Unicode character type.
+ *  The type chosen can be signed or unsigned, but it must be large enough to accommodate the
+ *  entire Unicode character repertoire.
+ *  As of Unicode 16.0, that means an integer with at least 21 bits of storage.
+ *
+ *  The snippet below demonstrates how to redefine #unichar as a signed 64-bit integer.
+ *  Using a 64-bit integer is wasteful, as you only need 21-bits, and was chosen for example purposes only.
+ *
+ *  \code{.json}
+ *  {
+ *      "characterStorage": "int64_t",
+ *  }
+ *  \endcode
+ * 
+ *  \since 1.0
+ */
+
+/*! \typedef int32_t unisize
+ *  \brief Code unit count.
+ *
+ *  An integer type whose storage size represents the maximum potential length (in code units) of encoded text.
+ *
+ *  \since 1.0
+ */
+
+/*! \typedef unistat
+ *  \brief Status code.
+ *
+ *  Most functions in the Unicorn library return an element of this enumeration.
+ *  Of the elements, only #UNI_OK and #UNI_DONE represent a success status whereas
+ *  the others represent failures.
+ * 
+ *  \since 1.0
+ */
+
+/*! \var unistat::UNI_OK
+ *  \brief Success status.
+ *
+ *  Represents the successful execution of an operation.
+ *
+ *  \since 1.0
+ */
+
+/*! \var unistat::UNI_DONE
+ *  \brief Successful completion of an operation.
+ *
+ *  Represents the successful completion of an operation.
+ *  An example of function that returns this status code is #uni_nextbrk which returns it
+ *  when the end of the input string has been reached.
+ *
+ *  \since 1.0
+ */
+
+/*! \var unistat::UNI_NO_MEMORY
+ *  \brief Indicates a failure to dynamically allocate memory.
+ *
+ *  Functions that potentially allocate memory will have this
+ *  element listed as one of their potential return values.
+ *  Functions that omit this element as a potential
+ *  return code do \b not perform dynamic memory allocation.
+ *
+ *  \since 1.0
+ */
+
+/*! \var unistat::UNI_BAD_OPERATION
+ *  \brief Indicates a function call with invalid inputs.
+ *
+ *  This failure code is returned by functions when they are called with invalid arguments.
+ *  For instance a function might return this code when given a null pointer when a non-null pointer was expected.
+ *
+ *  \since 1.0
+ */
+
+/*! \var unistat::UNI_NO_SPACE
+ *  \brief Indicates the destination buffer is too small to receive the content.
+ *
+ *  This status code indicates that a larger buffer must be given.
+ *
+ *  \since 1.0
+ */
+
+/*! \var unistat::UNI_BAD_ENCODING
+ *  \brief Indicates a malformed character sequence was encountered.
+ *
+ *  Examples of malformed character sequences would be overlong sequences in UTF-8 or
+ *  unpaired surrogate characters in UTF-16.
+ *
+ *  \since 1.0
+ */
+
+/*! \var unistat::UNI_FEATURE_DISABLED
+ *  \brief Indicates the requested operation cannot be performed because the feature is disabled.
+ *
+ *  Unicorn allows consumers to customize which Unicode features it’s built with.
+ *  This is useful for reducing the overall size of the library for memory constrained environments.
+ *  If a user attempts to use a feature (e.g. call a function) that is disabled then this status code is returned.
+ *
+ *  \since 1.0
+ */
+
+/*! \var unistat::UNI_MALFUNCTION
+ *  \brief Indicates a defect with the implementation.
+ *
+ *  In a working version of Unicorn, an application will never see this status code.
+ *  If an application does encounter this code, it means there is a bug in Unicorn.
+ *
+ *  \since 1.0
+ */
+
+/*! \typedef unienc
+ *  \brief Text attributes.
+ *
+ *  Unless documented otherwise, all functions that accept a #unienc must observe the following rules:
+ *
+ *  There must be exactly one of the following encodings present.
+ *
+ *  - #UNI_SCALAR
+ *  - #UNI_UTF8
+ *  - #UNI_UTF16
+ *  - #UNI_UTF32
+ *
+ *  There can optionally be one of the following flags.
+ *  If none are present, then \ref UNI_NATIVE "native byte order" is assumed.
+ *  These flags are incompatible with #UNI_SCALAR which is always in native byte order.
+ *  These flags have no affect with #UNI_UTF8 because UTF-8 is endian independent.
+ *
+ *  - #UNI_NATIVE
+ *  - #UNI_LITTLE
+ *  - #UNI_BIG
+ *
+ *  There can optionally be any combination of the following flags.
+ *
+ *  - #UNI_TRUST
+ *  - #UNI_NULIFY
+ *
+ *  The following example demonstrates using these flags to parse the first code point
+ *  of a UTF-16 big endian string.
+ *
+ *  \code{.c}
+ *  const char16_t text[] = u"Hello, World!";
+ *  int index = 0;
+ *  unichar cp;
+ *  uni_next(text, -1, UNI_UTF16 | UNI_BIG, &index, &cp);
+ *  \endcode
+ *
+ *  \since 1.0
+ */
+
+/*! \var unienc::UNI_UTF8
+ *  \brief UTF-8 encoding form.
+ *
+ *  Text encoded as UTF-8.
+ *  The implementation uses an unsigned 8-bit integer (`uint8_t`) to represent UTF-8 code units.
+ */
+
+/*! \var unienc::UNI_UTF16
+ *  \brief UTF-16 encoding form.
+ *
+ *  Text encoded as UTF-16 in native byte order.
+ *  The implementation uses an unsigned 16-bit integer (`uint16_t`) to represent UTF-16 code units.
+ */
+
+/*! \var unienc::UNI_UTF32
+ *  \brief UTF-32 encoding form.
+ *
+ *  Text encoded as UTF-32 in native byte order.
+ *  The implementation uses an unsigned 32-bit integer (`uint32_t`) to represent UTF-32 code units.
+ */
+
+/*! \var unienc::UNI_SCALAR
+ *  \brief Unicode scalar value.
+ *
+ *  Text stored as Unicode scalar values uses #unichar for storage.
+ *  Remember that a Unicode scalar is \b not the same as a code point.
+ *  The former excludes surrogate characters whereas the latter does not.
+ *
+ *  Although this “encoding” is part of the #unienc enumeration it is \b not a standardized Unicode
+ *  encoding. It is a pseudo-encoding associated with #unienc for convenience.
+ */
+
+/*! \var unienc::UNI_BIG
+ *  \brief Big endian byte order.
+ *
+ *  This flag indicates the text is encoded in big endian byte order.
+ *  It’s incompatible with the #UNI_LITTLE flag.
+ * 
+ *  This flag is intended for use with #UNI_UTF16 and #UNI_UTF32.
+ *  It has no effect when used with #UNI_UTF8 or #UNI_SCALAR.
+ */
+
+/*! \var unienc::UNI_LITTLE
+ *  \brief Little endian byte order.
+ *
+ *  This flag indicates the text is encoded in little endian byte order.
+ *  It’s incompatible with the #UNI_BIG flag.
+ * 
+ *  This flag is intended for use with #UNI_UTF16 and #UNI_UTF32.
+ *  It has no effect when used with #UNI_UTF8 or #UNI_SCALAR.
+ */
+
+/*! \var unienc::UNI_NATIVE
+ *  \brief Native endian byte order.
+ *
+ *  This flag indicates the text is encoded in native endian byte order.
+ *  It’s incompatible with the #UNI_BIG and #UNI_LITTLE flag.
+ * 
+ *  This flag is intended for use with #UNI_UTF16 and #UNI_UTF32.
+ *  It has no effect when used with #UNI_UTF8 or #UNI_SCALAR.
+ */
+
+/*! \var unienc::UNI_TRUST
+ *  \brief Indicates that the encoded text is well formed.
+ *
+ *  Under normal usage Unicorn processes text with the assumption that it might be malformed.
+ *  This means it performs safety checks which are redundant if the text has already been validated.
+ *  The purpose of this flag is to inform Unicorn that it can skip validation checks improving performance.
+ *
+ *  \extra
+ *  By itself, this is not a valid text encoding.
+ *  It is a bit flag intended to be used *with* a text encoding.
+ *  The following code excerpt demonstrates using this flag with the UTF-8 encoding:
+ * 
+ *  \code{.c}
+ *  const char8_t *text = "Hello, World!";
+ *  int index = 0;
+ *  unichar cp;
+ *  uni_next(text, -1, UNI_UTF8 | UNI_TRUST, &index, &cp);
+ *  \endcode
+ *  \endextra 
+ * 
+ *  Usage of this flag means functions will never return #UNI_BAD_ENCODING.
+ * 
+ *  \warning
+ *  If malformed text is processed with this flag, then the behavior is undefined.
+ *
+ *  Some functions accept an input buffer and an output buffer.
+ *  Using this flag with an output buffer will produce #UNI_BAD_OPERATION.
+ */
+
+/*! \var unienc::UNI_NULIFY
+ *  \brief Null terminate the output buffer.
+ *
+ *  Some functions accept an _input_ buffer and an _output_ buffer.
+ *  The output buffer is a destination buffer that the implementation writes encoded characters to.
+ *  When this flag is applied to the output buffer the implementation guarantees a NUL character (U+0000)
+ *  is appended, even if it means truncating the last non-null character. Conceptually, this behavior is
+ *  like `strlcpy` which is a BSD function that garuntees the destination buffer is always null terminated
+ *  even if it means truncating the last non-null character.
+ *
+ *  The implementation will never append an extraneous null character if the output buffer is already null
+ *  terminated.
+ *
+ *  Using this flag with an input buffer will produce #UNI_BAD_OPERATION.
+ */
+
+/*! \fn void uni_getversion(int *major, int *minor, int *patch);
+ *  \brief Library version.
+ *
+ *  Retrieve the major, minor, and patch version of the Unicorn library and writes them
+ *  to \p major, \p minor, and \p patch. Null arguments are ignored.
+ * 
+ *  \extra
+ *  \note
+ *  Unicorn observes semantic versioning.
+ *  \endextra
+ *
+ *  \param[out] major Major version of the Unicorn library.
+ *  \param[out] minor Minor version of the Unicorn library.
+ *  \param[out] patch Patch version of the Unicorn library.
+ *
+ *  \since 1.0
+ */
+
+/**@}*/
+
+/*! \addtogroup CaseMappingAPI
+ *  \brief Case conversion, matching, and detection.
+ *
+ *  Case mapping is the process of transforming characters from one case to another for
+ *  comparison or presentation.
+ * 
+ *  \section case-conversion Case Conversion
+ * 
+ *  Case conversion transforms text into a particular cased form.
+ *  The resulting text is presentable to an end user.
+ *
+ *  There are three case conversion operations:
+ *
+ *  - \ref UNI_LOWER "Lowercase conversion"
+ *  - \ref UNI_TITLE "Titlecase conversion"
+ *  - \ref UNI_UPPER "Uppercase conversion"
+ *
+ *  Case conversion is <em>context sensitive</em> which means characters are mapped based on their surrounding
+ *  characters.
+ *
+ *  Support for case conversion must be enabled in the JSON configuration file.
+ *  Where string values “lower”, “title”, and “upper” correspond to the #UNI_LOWER, #UNI_TITLE, and #UNI_UPPER constants, respectively.
+ *
+ *  \code{.json}
+ *  {
+ *      "algorithms": {
+ *          "caseConversion": [
+ *              "lower",
+ *              "title",
+ *              "upper"
+ *          ],
+ *      }
+ *  }
+ *  \endcode
+ *
+ *  \section case-folding Case Folding
+ *
+ *  Case folding transforms text into a form intended for case-insensitive string comparisons. Case folding
+ *  is _primarily_ based on the simple lowercase mappings, but there are instances where uppercase characters
+ *  are used such as Cherokee characters. A case folded string must \b never be displayed to an end-user.
+ *  It’s only intended for internal case-insensitive comparisons.
+ *
+ *  There are two variations of case folding supported by Unicorn:
+ *
+ *  - \ref UNI_DEFAULT "Default case folding"
+ *  - \ref UNI_CANONICAL "Canonical case folding"
+ *
+ *  Default case folding does \b not preserve normalization forms. This means a string in a particular Unicode
+ *  normalization form is not guaranteed to be in that same normalization form after being casefolded.
+ *
+ *  Support for case folding must be enabled in the JSON configuration file.
+ *  Where string values “default” and “canonical” correspond to the #UNI_DEFAULT and #UNI_CANONICAL constants, respectively.
+ *
+ *  \code{.json}
+ *  {
+ *      "algorithms": {
+ *          "caseFolding": [
+ *              "default",
+ *              "canonical"
+ *          ],
+ *      }
+ *  }
+ *  \endcode
+ * 
+ *  @{
+ */
+
+/*! \typedef unicaseconv
+ *  \brief Case conversion operations.
+ *
+ *  This enumeration defines the supported case conversion operations.
+ */
+
+/*! \var unicaseconv::UNI_LOWER
+ *  \brief Lowercase case conversion.
+ */
+
+/*! \var unicaseconv::UNI_TITLE
+ *  \brief Titlecase case conversion.
+ */
+
+/*! \var unicaseconv::UNI_UPPER
+ *  \brief Uppercase case conversion.
+ */
+
+/*! \typedef unicasefold
+ *  \brief Case folding operations.
+ *
+ *  This enumeration defines the supported case folding operations.
+ */
+
+/*! \var unicasefold::UNI_DEFAULT
+ *  \brief Case folding for binary caseless string comparison.
+ */
+
+/*! \var unicasefold::UNI_CANONICAL
+ *  \brief Case folding for canonical caseless string comparison.
+ */
+
+/*! \name Case Conversion Functions
+ *  \brief Transform text into a cased form.
+ * @{
+ */
+
+/*! \fn unistat uni_caseconv(unicaseconv casing, const void *src, unisize src_len, unienc src_enc, void *dst, unisize *dst_len, unienc dst_enc);
+ *  \brief Perform case conversion.
+ *
+ *  This function converts \p src to upper case and writes the result to \p dst.
+ *  When the function is called \p dst_len must specify the capacity of the \p dst buffer.
+ *  Before the function returns it writes the total number of code units in the upper
+ *  cased text to \p dst_len.
+ *  If the capacity of \p dst is insufficient, then #UNI_NO_SPACE is returned.
+ 
+ *  If \p dst is \c NULL, then \p dst_len must be zero.
+ *  If \p dst is \c NULL, then the function writes to \p dst_len the number of code units in the fully converted text
+ *  and returns #UNI_OK.
+ *  Calling the function this way can be used to first compute the total length of the destination buffer,
+ *  then it can be called again with a heap allocated buffer large enough to accommodate it.
+ * 
+ *  The implementation always null-terminates \p dst when \p src_len is \c -1.
+ *
+ *  \code{.c}
+ *  #include <unicorn.h>
+ * 
+ *  int main(void)
+ *  {
+ *      const char *in = u8"hello, 世界";
+ *      char out[32];
+ *      long outlen = sizeof(buf);
+ *
+ *      if (uni_convert(casemap, UNI_UPPER, in, -1, out, &outlen, UENC_UTF8) != UNI_OK)
+ *      {
+ *          puts("something went wrong");
+ *          return 1;
+ *      }
+ *
+ *      printf("%.*s", outlen, out); // prints “HELLO, 世界”
+ *      return 0;
+ *  }
+ *  \endcode
+ *
+ *  \param[in] casing Casing operation to apply to \p src.
+ *  \param[in] src Text to case convert.
+ *  \param[in] src_len Number of code units in \p src or \c -1 if \p src is null terminated.
+ *  \param[in] src_enc Encoding of \p src.
+ *  \param[out] dst Buffer to write the upper case result to (can be \c NULL).
+ *  \param[inout] dst_len Capacity of \p dst in code units on input;
+ *                        number of code units in \p src when upper cased on output.
+ *  \param[in] dst_enc Encoding of \p dst.
+ *
+ *  \retval #UNI_OK If \p text was checked successfully.
+ *  \retval #UNI_BAD_OPERATION If \p casemap is \c NULL, \p text is \c NULL, \p length is negative,
+ *                                 or \p result is \c NULL.
+ *  \retval #UNI_NO_SPACE If \p dst was not large enough.
+ *  \retval #UNI_FEATURE_DISABLED If the library was built without support for case mapping.
+ *
+ *  \since 1.0
+ */
+
+/**@}*/
+
+/*! \name Case Folding Functions
+ *  \brief Transform text for case-insensitive string comparisons.
+ * @{
+ */
+
+/*! \fn unistat uni_casefold(unicasefold op, const void *src, unisize src_len, unienc src_enc, void *dst, unisize *dst_len, unienc dst_enc);
+ *  \brief Perform case folding.
+ *
+ *  This function converts \p src to upper case and writes the result to \p dst.
+ *  When the function is called \p dst_len must specify the capacity of the \p dst buffer.
+ *  Before the function returns it writes the total number of code units in the upper
+ *  cased text to \p dst_len.
+ *  If the capacity of \p dst is insufficient, then #UNI_NO_SPACE is returned.
+ *
+ *  If \p dst is \c NULL, then \p dst_len must be zero.
+ *  If \p dst is \c NULL, then the function writes to \p dst_len the number of code units in the fully case folded text
+ *  and returns #UNI_OK.
+ *  Calling the function this way can be used to first compute the total length of the destination buffer,
+ *  then it can be called again with a heap allocated buffer large enough to accommodate it.
+ * 
+ *  The implementation always null-terminates \p dst when \p src_len is \c -1.
+ *
+ *  \code{.c}
+ *  #include <unicorn.h>
+ * 
+ *  int main(void)
+ *  {
+ *      const char *in = u8"hello, 世界";
+ *      char out[32];
+ *      long outlen = sizeof(buf);
+ *
+ *      if (uni_caseconv(UNI_UPPER, in, -1, out, &outlen, UENC_UTF8) != UNI_OK)
+ *      {
+ *          puts("something went wrong");
+ *          return 1;
+ *      }
+ *
+ *      printf("%.*s", outlen, out); // prints “HELLO, 世界”
+ *      return 0;
+ *  }
+ *  \endcode
+ *
+ *  \param[in] op Casing operation to apply to \p src.
+ *  \param[in] src Text to case fold.
+ *  \param[in] src_len Number of code units in \p src or \c -1 if \p src is null terminated.
+ *  \param[in] src_enc Encoding of \p src.
+ *  \param[out] dst Buffer to write the upper case result to (can be \c NULL).
+ *  \param[inout] dst_len Capacity of \p dst in code units on input;
+ *                        number of code units in \p src when upper cased on output.
+ *  \param[in] dst_enc Encoding of \p dst.
+ *
+ *  \retval #UNI_OK If \p text was checked successfully.
+ *  \retval #UNI_BAD_OPERATION If \p text is \c NULL, \p length is negative, or \p result is \c NULL.
+ *  \retval #UNI_NO_SPACE If \p dst was not large enough.
+ *  \retval #UNI_FEATURE_DISABLED If the library was built without support for case mapping.
+ *  \retval #UNI_NO_MEMORY If dynamic memory allocation failed.
+ *
+ *  \since 1.0
+ */
+
+/**@}*/
+
+/**@}*/
+
+/*! \addtogroup CollationAPI
+ *  \brief Sort text.
+ * 
+ *  Collation is the process and function of determining the sorting order of strings.
+ *  Collation varies according to language and culture: Germans, French and Swedes sort the same characters
+ *  differently. Unicorn is \b not an internationalization library therefore it does not contain language
+ *  specific rules for sorting. Instead, it uses the Default Collation Element table (DUCET), which is data
+ *  specifying the “default” collation order for all Unicode characters. The goal of DUCET is to provide 
+ *  a reasonable default ordering for all scripts.
+ *
+ *  To address the complexities of language-sensitive sorting, a multilevel comparison algorithm is employed.
+ *  In comparing two strings, the most important feature is the identity of the base letters. For example, the
+ *  difference between an \e A and a \e B. Accent differences are typically ignored, if the base letters differ.
+ *  Case differences (uppercase versus lowercase) are typically ignored, if the base letters or their accents
+ *  differ. The number of levels that are considered in comparison is known as the \e strength and are
+ *  programmatically indicating by the elements of the #unistrength enumeration.
+ *
+ *  \section col-sortkeys Sort Keys
+ *
+ *  Collation is one of the most performance-critical features in a system. Consider the number of comparison
+ *  operations that are involved in sorting or searching large databases. When comparing strings multiple times
+ *  it’s recommended to generate and cache a <em>sort key</em>. A sort key is an array of unsigned 16-bit integers
+ *  that is generated from a single string in combination with other collation settings. Sort keys must be generated
+ *  with the same settings for their order to make sense. Two sort keys can be compared to produce either a less
+ *  than, greater than, or equal to result. This result can be used with a sorting algorithm, like merge sort,
+ *  to sort a collection of strings. 
+ *
+ *  Sort keys are generated with #uni_sortkeymk. This function accepts a string, collation settings, and produces
+ *  the 16-bit sort key.
+ *
+ *  \code{.c}
+ *  const char *string = "The quick brown fox jumps over the lazy dog.";
+ *  uint16_t sortkey[16];
+ *  unisize sortkey_len = 16;
+ *  uni_sortkeymk(string, -1, UNI_UTF8, UNI_PRIMARY, UNI_SHIFTED, NULL, &sortkey_len);
+ *  \endcode
+ *
+ *  Once two sort keys are generated, they can be compared with #uni_sortkeycmp.
+ *
+ *  In the case of comparing one-off pairs of strings, generating a sort key makes less sense. For these cases,
+ *  a one-off comparison can be made using #uni_collate. This function  is conceptually like the `strcoll` function
+ *  provided by the C standard library.
+ *
+ *  \section col-normalization Normalization
+ * 
+ *  The Unicode Collation Algorithm provides a complete, unambiguous, specified ordering for all characters.
+ *  Canonical decomposition is performed as part of the algorithm therefore whether strings are normalized or
+ *  not is irrelevant.
+ *
+ *  \section col-version Version Compatibility
+ *
+ *  The relationship between two strings (two sort keys) is stable between versions of Unicode, however, the
+ *  16-bit values of a sort key may change. If sort keys are retained in persistent storage, it is recommended to
+ *  store the Unicode version they were generated against. If the current version of the standard does not match
+ *  what is stored, then all sort keys must be regenerated.
+ *
+ *  @{
+ */
+
+/*! \typedef unistrength
+ *  \brief Number of levels to be considered in comparison.
+ *
+ *  The Unicode collation algorithm is a _multilevel_ comparison algorithm.
+ *  The number of levels that are considered in comparison is known as the collation _strength_.
+ *  This enumeration defines constants describing each level.
+ */
+
+/*! \var unistrength::UNI_PRIMARY
+ *  \brief Represents differences in the base letter or symbol.
+ */
+
+/*! \var unistrength::UNI_SECONDARY
+ *  \brief Represents differences in accents.
+ */
+
+/*! \var unistrength::UNI_TERTIARY
+ *  \brief Represents differences in case or variants of symbols.
+ */
+
+/*! \var unistrength::UNI_QUATERNARY
+ *  \brief Represents differences in punctuation.
+ */
+
+/*! \typedef uniweighting
+ *  \brief Collation weighting algorithm.
+ *
+ *  This enumeration defines constants representing the possible options for variable weighted characters.
+ *
+ *  The Unicode Collation Algorithm defines the collation for some characters as \e variable.
+ *  This typically includes punctuation characters and symbols. Based on the variable-weighting setting,
+ *  these characters can be interpreted as having a \ref UNI_QUATERNARY "quaternary level".
+ */
+
+/*! \var uniweighting::UNI_NON_IGNORABLE
+ *  \brief Characters are not reset to be quaternary.
+ *
+ *  The words with hyphen-minus or hyphen are grouped together, but before all letters in the third position.
+ *  This is because they are not ignorable, and have primary values that differ from the letters.
+ *  The symbols ☠ and ♡ have primary differences.
+ */
+
+/*! \var uniweighting::UNI_SHIFTED
+ *  \brief Characters are adjusted to become quaternary.
+ *
+ *  The hyphen-minus and hyphen are grouped together, and their differences are less significant than the
+ *  casing differences in the letter “l”. This grouping results from the fact that they are ignorable, but
+ *  their fourth level differences are according to the original primary order, which is more intuitive
+ *  than Unicode order. The symbols ☠ and ♡ are ignored on levels 1-3.
+ */
+
+/*! \fn unistat uni_collate(const void *s1, unisize s1_len, unienc s1_enc, const void *s2, unisize s2_len, unienc s2_enc, uniweighting weighting, unistrength strength, int *result);
+ *  \brief Compare strings for sorting.
+ *
+ *  Compare strings \p s1 and \p s2 and write either -1, 0, or 1 to \p result depending on if `s1 < s2`, `s1 = s2`, or `s1 > s2`.
+ *  This function is intended for one-off string comparisons.
+ *  If a string will be compared multiple times, then it’s recommended to build a sort key for it.
+ *  Sort keys are constructed with #uni_sortkeymk and compared with #uni_sortkeycmp.
+ *
+ *  Support for collation must be enabled in the JSON configuration file.
+ *
+ *  \code{.json}
+ *  {
+ *      "algorithms": {
+ *          "collation": true
+ *      }
+ *  }
+ *  \endcode
+ *
+ *  \param[in] s1 The first string.
+ *  \param[in] s1_len The number of code units in \p s1 or \c -1 if null terminated.
+ *  \param[in] s1_enc Encoding of \p s1.
+ *  \param[in] s2 The second string.
+ *  \param[in] s2_len The number of code units in \p ss or \c -1 if null terminated.
+ *  \param[in] s2_enc Encoding of \p s2.
+ *  \param[in] weighting Collation weighting algorithm (see #uniweighting for details).
+ *  \param[in] strength Levels to be considered in comparison (see #unistrength for details).
+ *  \param[out] result The integer -1, 0, or 1 depending on if `s1 < s2`, `s1 = s2`, or `s1 > s2`.
+ *
+ *  \retval #UNI_OK If the scalar was successfully decoded.
+ *  \retval #UNI_BAD_OPERATION If \p s1, \p s2, or \p result are NULL.
+ *  \retval #UNI_NO_MEMORY If dynamic memory allocation failed.
+ *
+ *  \since 1.0
+ */
+
+/*! \fn unistat uni_sortkeymk(const void *text, unisize length, unienc encoding, uniweighting weighting, unistrength strength, uint16_t *sortkey, unisize *sortkey_cap);
+ *  \brief Make sort key.
+ *
+ *  Build a sort key for \p text in encoding form \p encoding and writes the result to \p sortkey.
+ *  The number of code units in \p text is specified by \p length.
+ *  If \p length is negative then \p text is assumed to be null terminated.
+ *
+ *  The implementation will set \p sortkey_cap to the number of 16-bit integers written to \p sortkey.
+ *  The implementation returns #UNI_NO_SPACE if \p sortkey lacks capacity.
+ *  In this case the value of \p sortkey is undefined and \p sortkey_cap is set to the length needed.
+ *
+ *  If the implementation detects \p text is malformed, then it returns #UNI_BAD_ENCODING.
+ *
+ *  Support for collation must be enabled in the JSON configuration file.
+ *
+ *  \code{.json}
+ *  {
+ *      "algorithms": {
+ *          "collation": true
+ *      }
+ *  }
+ *  \endcode
+ *
+ *  \param[in] text Text to build the sort key for.
+ *  \param[in] length Number of code units in \p text or \c -1 if \p text is null terminated.
+ *  \param[in] encoding Encoding of \p text.
+ *  \param[in] weighting Collation weighting algorithm (see #uniweighting for details).
+ *  \param[in] strength Levels to be considered in comparison (see #unistrength for details).
+ *  \param[out] sortkey Collation element weights for \p text.
+ *  \param[inout] sortkey_cap Capacity of \p weights on input; number of weights needed for the sort key on output.
+ *
+ *  \retval #UNI_OK If the scalar was successfully decoded.
+ *  \retval #UNI_NO_SPACE If \p sortkey lacks capacity for the collation elements.
+ *  \retval #UNI_BAD_OPERATION If \p text or \p sortkey_cap are NULL.
+ *  \retval #UNI_NO_MEMORY If dynamic memory allocation failed.
+ *
+ *  \since 1.0
+ */
+
+/*! \fn unistat uni_sortkeycmp(const uint16_t *sk1, unisize sk1_len, const uint16_t *sk2, unisize sk2_len, int *result);
+ *  \brief Compares sort keys.
+ *
+ *  Compare sort keys \p sk1 and \p sk2 and write either -1, 0, or 1 to \p result depending on if
+ *  `sk1 < sk2`, `sk1 = sk2`, or `sk1 > sk2`. The sort keys must be generated with #uni_sortkeymk.
+ *
+ *  \param[in] sk1 The first sort key.
+ *  \param[in] sk1_len Length of sort key \p sk1.
+ *  \param[in] sk2 The second sort key.
+ *  \param[in] sk2_len Length of sort key \p sk2.
+ *  \param[out] result The integer -1, 0, or 1 depending on if `s1 < s2`, `s1 = s2`, or `s1 > s2`.
+ *
+ *  \retval #UNI_OK If the collation algorithm executed successfully.
+ *  \retval #UNI_BAD_OPERATION If \p sk1, \p sk2, or \p result are \c NULL.
+ *
+ *  \since 1.0
+ */
+
+/**@}*/
+
+/*! \addtogroup SegmentsAPI
+ *  \brief Text segmentation.
+ *
+ *  A string of Unicode-encoded text often needs to be broken up into <em>text elements</em> programmatically.
+ *  Common examples of text elements include user-perceived characters, words, and sentences.
+ *  Where these text elements begin and end is called the \e boundary and the process of boundary
+ *  determination is called \e segmentation.
+ * 
+ *  The precise determination of text elements varies according to orthographic conventions for a given script
+ *  or language. The goal of matching user perceptions cannot always be met exactly because the text alone does
+ *  not always contain enough information to unambiguously decide boundaries. For example, the period character
+ *  (U+002E FULL STOP) is used ambiguously, sometimes for end-of-sentence purposes, sometimes for abbreviations,
+ *  and sometimes for numbers. In most cases, however, programmatic text boundaries can match user perceptions
+ *  quite closely, although sometimes the best that can be done is to not surprise the user.
+ *
+ *  Unicorn supports grapheme, word, and sentence segmentation. These text elements are identified by the following
+ *  constants:
+ *
+ *  - #UNI_GRAPHEME
+ *  - #UNI_WORD
+ *  - #UNI_SENTENCE
+ *
+ *  The algorithms for word and sentence segmentation are intended for languages that use white space to delimit
+ *  words. Thai, Lao, Khmer, Myanmar, and ideographic scripts such as Japanese and Chinese do not typically use
+ *  spaces between words and require language-specific break rules. Unicorn is not an internationalization library
+ *  and therefore does not include rules specific to these languages.
+ *
+ *  @{
+ */
+
+/*! \typedef unibreak
+ *  \brief Detectable text elements.
+ *
+ *  The elements of this enumeration describe the boundaries that can be detected.
+ *  Conceptually, a break represents the space in between two code points.
+ *
+ *  \since 1.0
+ */
+
+/*! \var unibreak::UNI_GRAPHEME
+ *  \brief Grapheme cluster breaks.
+ *
+ *  A _grapheme_ or _grapheme cluster_ is a user-perceived character.
+ *  Grapheme clusters are useful for implementing editing interfaces and user-facing text manipulation.
+ *  For example, graphemes should be used in the implementation of text selection, arrow key movement,
+ *  backspacing through text, and so forth. When truncating text for presentation grapheme cluster boundaries
+ *  should be used to avoid malforming the text.
+ *
+ *  Support for grapheme cluster break detection can be enabled in the JSON configuration as shown below:
+ *
+ *  \code{.json}
+ *  {
+ *      "algorithms": {
+ *          "segmentation": [
+ *              "grapheme"
+ *          ]
+ *      }
+ *  }
+ *  \endcode
+ *
+ *  \note
+ *  <a href="https://unicode.org/reports/tr29/">Unicode Technical Report #29</a> provides two definitions of
+ *  grapheme clusters: **legacy** grapheme clusters and **extended** grapheme clusters. Unicorn
+ *  implements the latter.
+ *
+ *  \since 1.0
+ */
+
+/*! \var unibreak::UNI_WORD
+ *  \brief Word breaks.
+ *
+ *  Word boundaries are used in a number of different contexts. The most familiar ones are selection (double-click
+ *  mouse selection or “move to next word” control-arrow keys) and “whole word search” for search and replace. They
+ *  are also used in database queries and regular expressions, to determine whether elements are within a certain
+ *  number of words of one another.
+ *
+ *  The default algorithm for detecting word boundaries   primarily intended for languages that use white space to
+ *  delimit words. For example, Thai, Lao, Khmer, Myanmar, and other scripts do not typically use spaces between
+ *  words. Ideographic scripts such as Japanese and Chinese are even more complex. It is therefore not possible to
+ *  provide an algorithm that correctly detects word boundaries across languages. These languages require special
+ *  handling by a more sophisticated word break detection algorithm that understands the rules of the language.
+ * 
+ *  Support for word break detection can be enabled in the JSON configuration file as shown below:
+ *
+ *  \code{.json}
+ *  {
+ *      "algorithms": {
+ *          "segmentation": [
+ *              "word"
+ *          ]
+ *      }
+ *  }
+ *  \endcode
+ * 
+ *  \since 1.0
+ */
+
+/*! \var unibreak::UNI_SENTENCE
+ *  \brief Sentence break.
+ *
+ *  Sentence boundaries are often used for triple-click or other methods of selecting or iterating through
+ *  blocks of text that are larger than single words. They are also used to determine whether words occur
+ *  within the same sentence in database queries.
+ *
+ *  Support for sentence break detection can be enabled in the JSON configuration file as shown below:
+ *
+ *  \code{.json}
+ *  {
+ *      "algorithms": {
+ *          "segmentation": [
+ *              "sentence"
+ *          ]
+ *      }
+ *  }
+ *  \endcode
+ * 
+ *  \since 1.0
+ */
+
+/*! \fn unistat uni_nextbrk(unibreak type, const void *text, unisize length, unienc encoding, unisize *index);
+ *  \brief Advances the iterator to the next boundary.
+ *
+ *  Advance the iterator \p it to the boundary following its current position.
+ *  The \p pos parameter will be populated with the code unit offset of the
+ *  boundary and whether said boundary is optional or mandatory.
+ *
+ *  When #UNI_DONE is returned then the position of the iterator will be
+ *  immediately beyond the last character in the text being scanned.
+ *  This is not the same as the last character.
+ *
+ *  \param[in] type Boundary to detect.
+ *  \param[in] text The text to segment.
+ *  \param[in] length Number of code units in \p text or \c -1 if it’s null terminated.
+ *  \param[in] encoding Encoding of \p text.
+ *  \param[in,out] index Code unit offset in \p text.
+ *
+ *  \retval #UNI_OK If the break iterator was successfully repositioned.
+ *  \retval #UNI_DONE If the break iterator is beyond the last character in the text being scanned.
+ *  \retval #UNI_BAD_OPERATION If \p it is \c NULL.
+ *
+ *  \since 1.0
+ */
+
+/*! \fn unistat uni_prevbrk(unibreak type, const void *text, unisize length, unienc encoding, unisize *index);
+ *  \brief Sets the iterator position to the preceding boundary.
+ *
+ *  Set the iterator position to the boundary preceding its current position.
+ *  The \p pos parameter will be populated with the code unit offset of the
+ *  boundary and whether said boundary is optional or mandatory.
+ * 
+ *  When #UNI_DONE is returned then the position of the iterator is at the beginning of the text being scanned.
+ *
+ *  \param[in] type Boundary to detect.
+ *  \param[in] text The text to segment.
+ *  \param[in] length Number of code units in \p text or \c -1 if it’s null terminated.
+ *  \param[in] encoding Encoding of \p text.
+ *  \param[in,out] index Code unit offset in \p text.
+ *
+ *  \retval #UNI_OK If the break iterator was successfully repositioned.
+ *  \retval #UNI_DONE If the break iterator is at the beginning of the text being scanned.
+ *  \retval #UNI_BAD_OPERATION If \p it is \c NULL.
+ *
+ *  \since 1.0
+ */
+
+/**@}*/

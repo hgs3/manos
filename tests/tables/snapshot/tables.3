@@ -1,0 +1,58 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+tables.h \- tables are cool
+.SH SYNOPSIS
+.nf
+.B #include <tables.h>
+.fi
+.SH DESCRIPTION
+This is a single column table:
+.PP
+.TS
+allbox tab(|);
+l.
+\fBOne column\fR
+T{
+This is a single row of data
+T}
+.TE
+.PP
+This is a multi-column table:
+.PP
+.TS
+allbox tab(|);
+lll.
+\fBOne column\fR|\fBTwo column\fR|\fBThree column\fR
+T{
+This is some data
+T}|T{
+More data
+T}|T{
+End of Data
+T}
+T{
+Even more data
+T}|T{
+I like data
+T}|T{
+Can't you tell?
+T}
+T{
+Final row of data
+T}|T{
+No more data
+T}|T{
+All done
+T}
+.TE
+.PP
+This is a table that uses special characters to verify they are escaped:
+.PP
+.TS
+allbox tab(|);
+l.
+\fBSpecial\fR
+T{
+!#$%^&*()|;{}[]"'
+T}
+.TE

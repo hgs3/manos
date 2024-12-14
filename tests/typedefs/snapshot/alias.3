@@ -1,0 +1,22 @@
+.TH "MY PROJECT" "3"
+.SH NAME
+alias.h \- type alias tests
+.SH SYNOPSIS
+.nf
+.B #include <alias.h>
+.fi
+.SH DESCRIPTION
+The "typedef" keyword in the programming languages C, C++, and Objective-C is used to create an additional name (alias) for another data type.
+It is often used to simplify the syntax of declaring complex data structures consisting of struct and union types, although it is also commonly used to provide specific descriptive type names for integer data types of varying sizes.
+.TS
+tab(;);
+l l.
+\fBEnumerations\fR;\fBDescription\fR
+_
+\fBfrob_t\fR(3);T{
+This is an unnamed enumeration.
+T}
+\fBbarracuda_t\fR(3);T{
+This is an named enumeration with an alias.
+T}
+.TE

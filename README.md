@@ -16,7 +16,7 @@ Manos corrects these shortcomings by generating a man page per-function and with
 
 ## Installation
 
-Manos requires Python 3.10 or newer and Doxygen 1.9.2 or newer.
+Manos requires Python 3.10 or newer and Doxygen 1.12.x series.
 
 Install the project through git checkout or install using your package management tool of choice.
 In these example pip is used.
