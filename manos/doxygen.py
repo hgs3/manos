@@ -213,7 +213,7 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                     # The Doxygen typedef argsstring, when it presents a function prototype, does not
                     # tokenize the paramters for us so instead we'll tokenize them ourselves and
                     # determine if any match the name of the referenced parameter.
-                    lexer = CLexer() # type: ignore
+                    lexer = CLexer() # type: ignore[no-untyped-call,unused-ignore]
                     for _, token in lexer.get_tokens(ctx.active_compound.argsstring):
                         if raw_text == token:
                             is_param = True

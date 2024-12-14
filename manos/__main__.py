@@ -280,7 +280,7 @@ def generate_typedef(typedef: du.Typedef) -> None:
     # The Doxygen typedef argsstring, when it presents a function prototype, does not
     # tokenize the paramters for us so instead we'll tokenize them ourselves and
     # determine if any match the name of the referenced parameter.
-    lexer = CLexer() # type: ignore
+    lexer = CLexer() # type: ignore[no-untyped-call,unused-ignore]
     for _, token in lexer.get_tokens(typedef.argsstring):
         # There shouldn't be any new lines in the argstring, but Pygments is adding them...
         if token == '\n':
