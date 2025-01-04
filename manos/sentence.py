@@ -42,7 +42,7 @@ def segment(text: str) -> List[str]:
                         "Id.", "Mr.", "Dept.", "Is.", "Pvt.", "Diff.", "Hon.B.A.", "Q.", "Mb.", "On.",
                         "Min.", "J.B.", "Ed.", "AB.", "A.", "S.p.A.", "I.", "a.m.", "Comm.", "Go.", "VS.",
                         "L.", "All.", "PP.", "P.V.", "T.", "K.R.", "Etc.", "D.", "Adv.", "Lib.", "E.g.", "Pro.",
-                        "U.S.A.", "S.E.", "AA.", "Rep.", "Sq.", "As.", "LLC.", "LTD.", "i.e.", "e.g" ]
+                        "U.S.A.", "S.E.", "AA.", "Rep.", "Sq.", "As.", "LLC.", "LTD.", "i.e.", "e.g." ]
         for sup in SUPPRESSIONS:
             if segment.endswith(sup):
                 return True
