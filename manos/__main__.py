@@ -922,7 +922,6 @@ def postparse_xml(filename: str) -> None:
                     for index,memberdef in enumerate(sectiondef.findall("memberdef")):
                         field = compound.fields[index]
                         field.description = du.process_description(memberdef.find("detaileddescription"), compound)
-                        compound.fields.append(field)
         elif kind == "file":
             # Create a compound for the file.
             if id := element.get("id"):
