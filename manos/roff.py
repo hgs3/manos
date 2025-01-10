@@ -135,6 +135,9 @@ class Roff:
                             content = r"\[char39]" + content[1:]  # Escape the first single quote.
                 # Emit the text.
                 if isinstance(curr, LiteralText):
+                    # Escape the backslash character in literal text because otherwise it
+                    # won't show up in the output.
+                    content = content.replace("\\", "\\\\")
                     # If the previous entry was a macro, then add a new line after it.
                     if isinstance(prev, Macro):
                         text += "\n"

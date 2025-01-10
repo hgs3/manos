@@ -20,8 +20,11 @@
  *  \code{.c}
  *  int main(int argc, char *argv[]) {
  *
+ *      // Let's test backslash escape sequences.
+ *      const char *json = "{\"a-c\":123}";
+ *
  *      // This sample intentionally contains blank lines.
- *      print("Hello, World!");
+ *      print("<Hello>, %s.", "World");
  *
  *      return 0;
  *  }
