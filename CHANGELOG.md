@@ -4,9 +4,16 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 Dates are represented via [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
-## [0.3.0] - ???
+## [0.3.0] - January 9th, 2024
 
-To be determined...
+### Changed
+
+* Adding 'e.g.' to the set of sentence break exceptions.
+
+### Fixed
+
+* Escaped backslash characters in code examples.
+* Removed duplicate fields from structure/union field listings.
 
 ## [0.2.0] - December 14th, 2024
 
