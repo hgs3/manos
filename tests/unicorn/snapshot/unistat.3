@@ -49,8 +49,7 @@ For instance a function might return this code when given a null pointer when a 
 .BR UNI_FEATURE_DISABLED
 Unicorn allows consumers to customize which Unicode features it’s built with.
 This is useful for reducing the overall size of the library for memory constrained environments.
-If a user attempts to use a feature (e.g.
-call a function) that is disabled then this status code is returned.
+If a user attempts to use a feature (e.g. call a function) that is disabled then this status code is returned.
 .TP
 .BR UNI_MALFUNCTION
 In a working version of Unicorn, an application will never see this status code.
