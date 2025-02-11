@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "manos"
-version = "0.3.1"
+version = "0.4.0"
 license = { text = "GPL v3.0" }
 description = "Generate man pages for C projects using Doxygen."
 readme = "README.md"
@@ -21,7 +21,7 @@ classifiers = [
 ]
 dependencies = [
   "lxml == 5.0.0",
-  "lxml-stubs == 0.3.1",
+  "lxml-stubs == 0.4.0",
 ]
 
 [project.urls]
