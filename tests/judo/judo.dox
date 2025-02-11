@@ -1,0 +1,230 @@
+/*! \file judo.h
+ *  \brief Embeddable JSON Parser.
+ *
+ *  \defgroup ScannerAPI Scanner
+ *  \defgroup ParserAPI Parser
+ */
+
+/*! \addtogroup ScannerAPI
+ *  \brief Find semantic elements.
+ *
+ *  The Judo scanner processes JSON source text into _semantic elements_.
+ *  \ref judo_element "Semantic elements" are notable marker points within the JSON stream that may or may not correspond with a JSON token.
+ *  You can find semantic elements with the #judo_scan function, which returns them one-at-a-time.
+ *  This function is intended to be called repeatedly until all semantic elements have been processed or an error halts the scanner.
+ *
+ *  @{
+ */
+
+/*! \typedef long double judo_number
+ *  \brief Floating-point storage type.
+ *
+ *  This can be defined as a `float`, `double`, or `long double` at \ref choose-a-floating-point-storage-type "configuration time".
+ *
+ *  \since 1.0
+ */
+
+/*! \def JUDO_MAXDEPTH
+ *  \brief Maximum nesting depth.
+ *
+ *  The maximum number of nested compound structures that Judo can process.
+ *  This value can be set at \ref change-the-maximum-nesting-depth "configuration time".
+ *  Defining a maximum nesting depth ensures that malicious JSON cannot trigger a stack overflow.
+ *
+ *  \since 1.0
+ */
+
+/*! \def JUDO_ERRMAX
+ *  \brief Maximum length of an error.
+ *
+ *  The maximum number of UTF-8 code units in an error message.
+ *
+ *  \since 1.0
+ */
+
+/*! \typedef judo_element
+ *  \brief Semantic element.
+ *
+ *  This enumeration represents a semanticly important element within the JSON stream.
+ *
+ *  \since 1.0
+ */
+
+/*! \var judo_element::JUDO_UNDEFINED
+ *  \brief Invalid element.
+ *
+ *  This element will be returned if an error occured during the scanning of the JSON stream.
+ * 
+ *  \since 1.0
+ */
+
+/*! \var judo_element::JUDO_NULL
+ *  \brief Null literal.
+ *
+ *  Represents the JSON `null` value.
+ * 
+ *  \since 1.0
+ */
+
+/*! \var judo_element::JUDO_TRUE
+ *  \brief True literal.
+ *
+ *  Represents the JSON boolean `true` value.
+ * 
+ *  \since 1.0
+ */
+
+/*! \var judo_element::JUDO_FALSE
+ *  \brief False literal.
+ *
+ *  Represents the JSON boolean `false` value.
+ * 
+ *  \since 1.0
+ */
+
+/*! \var judo_element::JUDO_NUMBER
+ *  \brief Numeric literal.
+ *
+ *  Represents a JSON numeric value.
+ *  The floating point representation can be retrieved with #judo_numberify.
+ * 
+ *  \since 1.0
+ */
+
+/*! \var judo_element::JUDO_STRING
+ *  \brief String literal.
+ *
+ *  Represents a JSON string value.
+ *  The escaped string can be retrieved with #judo_stringify.
+ * 
+ *  \since 1.0
+ */
+
+/*! \var judo_element::JUDO_ARRAY_PUSH
+ *  \brief Start of an array.
+ *
+ *  Indicates an array is about to be parsed.
+ * 
+ *  \since 1.0
+ */
+
+/*! \var judo_element::JUDO_ARRAY_POP
+ *  \brief End of an array.
+ *
+ *  Indicates an array has finished being parsed.
+ * 
+ *  \since 1.0
+ */
+
+/*! \var judo_element::JUDO_OBJECT_PUSH
+ *  \brief Start of an object.
+ *
+ *  Indicates an object is about to be parsed.
+ * 
+ *  \since 1.0
+ */
+
+/*! \var judo_element::JUDO_OBJECT_POP
+ *  \brief End of an object.
+ *
+ *  Indicates an object has finished being parsed.
+ * 
+ *  \since 1.0
+ */
+
+/*! \var judo_element::JUDO_OBJECT_NAME
+ *  \brief An object’s member name.
+ *
+ *  Represents an object’s member name.
+ *  In JavaScript terminology, this would be the objects “key.”
+ *  In JSON5 this might be an ECMAScript 5.1 identifier.
+ * 
+ *  \since 1.0
+ */
+
+/*! \var judo_element::JUDO_EOF
+ *  \brief End-of-file.
+ *
+ *  Represents the end of the JSON stream.
+ *  Receiving this element indicates the JSON stream has been fully parsed successfully.
+ * 
+ *  \since 1.0
+ */
+
+/*! \struct judo_stream
+ *  \brief Scanner state.
+ *
+ *  The structure encompasses the entire state of the Judo scanner.
+ *  Instances of this structure can be copied with `memcpy` to preserve an earlier state.
+ *
+ *  The fields \ref judo_stream::where "where" and \ref judo_stream::length "length" refer to the lexeme of the semantic element referenced by \ref judo_stream::element "element" in the source text, in UTF-8 code units.
+ *  If an error occurs, then they refer to the span of code units of the erroneous source text.
+ *
+ *  \since 1.0
+ */
+
+/*! \property judo_stream::where
+ *  \brief Code unit index.
+ *
+ *  The code unit index of the \ref judo_element "semantic element" that was last scanned.
+ *  If an error occurs, then this is the code unit index of the erroneous source text.
+ *
+ *  \since 1.0
+ */
+
+/*! \property judo_stream::length
+ *  \brief Code unit count.
+ *
+ *  The code unit count of the \ref judo_element "semantic element" that was last scanned.
+ *  If an error occurs, then this is the code unit length of the erroneous source text.
+ *
+ *  \since 1.0
+ */
+
+/*! \property judo_stream::element
+ *  \brief Semantic element.
+ *
+ *  The last scanned semantic element.
+ *
+ *  \since 1.0
+ */
+
+/*! \property judo_stream::error
+ *  \brief Error description.
+ *
+ *  If an error occurs during scanning, this buffer is populated with a null-terminated UTF-8 encoded description of the error in US English.
+ *  For example, if an object was declared with a missing closing brace charater, then #judo_scan will return #JUDO_BAD_SYNTAX and this buffer will be populated with the error message.
+ *  If no error occurs, then the buffer will be empty.
+ *
+ *  \since 1.0
+ */
+
+/*! \struct judo_error
+ *  \brief Parse error.
+ *
+ *  This structure will be populated with error information when #judo_parse fails.
+ *  More specifically, it will be populated with a UTF-8 encoded error message written in US English.
+ *  The \ref judo_error::where "where" and \ref judo_error::length "length" which together communicate the span of code units where the error was detected in the JSON source text.
+ *  You can use the span of code units to derive line and column numbers for more detailed error reporting.
+ *
+ *  As an example, if an object was declared with a missing closing brace charater, then #judo_parse will return #JUDO_BAD_SYNTAX and \ref judo_error::description "description" will be populated with the error message.
+ *
+ *  \since 1.0
+ */
+
+/*! \property judo_error::where
+ *  \brief Code unit index of the error in the source text.
+ *  \since 1.0
+ */
+
+/*! \property judo_error::length
+ *  \brief Code unit length of the error in the source text.
+ *  \since 1.0
+ */
+
+/*! \property judo_error::description
+ *  \brief Description of the error in US English.
+ *  \since 1.0
+ */
+
+/**@}*/

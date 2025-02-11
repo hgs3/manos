@@ -688,6 +688,15 @@ def preparse_xml(filename: str) -> None:
             composite.name = du.process_text(compounddef.find("compoundname"))
             composite.manpage_name = manpageify(composite)
             for sectiondef in compounddef.findall("sectiondef"):
+                for member in sectiondef.findall("member"):
+                    field_id = member.get("refid")
+                    assert field_id is not None
+                    field = du.Field(field_id, composite)
+                    field.name = du.process_text(member.find("name"))
+                    composite.fields.append(field)
+                    du.state.compounds[field_id] = field
+                # For whatever reason, Doxygen only uses "member" when the struct is in a group.
+                # If the struct is free standing, then it uses "memberdef" instead.
                 for memberdef in sectiondef.findall("memberdef"):
                     field_id = memberdef.get("id")
                     assert field_id is not None
@@ -815,6 +824,18 @@ def parse_sectiondef(element: lxml.etree._Element) -> None:
                 define.brief = du.process_brief(memberdef.find("briefdescription"), define)
                 register_compund(define)
             elif kind == "variable":
+                # Variables that are members of structs/unions should not be parsed here.
+                # These properties are documented alongside the struct/union.
+                definition_xml = memberdef.find("definition")
+                if definition_xml is not None:
+                    if "::" in (definition_xml.text or ""):
+                        field = du.state.compounds[id]
+                        assert field is not None
+                        assert isinstance(field, du.Field)
+                        field.type = du.process_text(memberdef.find("type"))
+                        field.argsstring = du.process_text(memberdef.find("argsstring"))
+                        field.brief = du.process_brief(memberdef.find("briefdescription"), field)
+                        continue
                 variable = du.Variable(id, group_id)
                 variable.brief = du.process_brief(memberdef.find("briefdescription"), variable)
                 variable.name = du.process_text(memberdef.find("name"))

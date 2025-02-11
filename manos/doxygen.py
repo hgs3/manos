@@ -301,9 +301,15 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                     if ctx.active_compound is not None:
                         ctx.active_compound.add_referenced(compound)
                     return roff
-                elif isinstance(compound, EnumElement) or isinstance(compound, Field):
+                elif isinstance(compound, EnumElement):
                     roff = Roff()
                     roff.append_text(f"\\f[B]{compound.name}\\f[R]")
+                    if ctx.active_compound is not None:
+                        ctx.active_compound.add_referenced(compound.parent)
+                    return roff
+                elif isinstance(compound, Field):
+                    roff = Roff()
+                    roff.append_text(f"\\f[I]{compound.name}\\f[R]")
                     if ctx.active_compound is not None:
                         ctx.active_compound.add_referenced(compound.parent)
                     return roff

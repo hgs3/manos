@@ -1,0 +1,24 @@
+.TH "JUDO" "3"
+.SH NAME
+judo_stream
+.SH LIBRARY
+Embeddable JSON parser (libjudo, -ljudo)
+.SH SYNOPSIS
+.nf
+.B #include <judo.h>
+.PP
+.B struct judo_stream {
+.RS
+.B int32_t where;
+.B int32_t length;
+.B enum judo_element element;
+.B char error[JUDO_ERRMAX];
+.RE
+.B };
+.fi
+.SH DESCRIPTION
+The structure encompasses the entire state of the Judo scanner.
+Instances of this structure can be copied with \f[B]memcpy\f[R](3) to preserve an earlier state.
+.PP
+The fields \f[I]where\f[R] and \f[I]length\f[R] refer to the lexeme of the semantic element referenced by \f[I]element\f[R] in the source text, in UTF-8 code units.
+If an error occurs, then they refer to the span of code units of the erroneous source text.

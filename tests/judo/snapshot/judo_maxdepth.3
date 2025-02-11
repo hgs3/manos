@@ -1,0 +1,15 @@
+.TH "JUDO" "3"
+.SH NAME
+JUDO_MAXDEPTH \- maximum nesting depth
+.SH LIBRARY
+Embeddable JSON parser (libjudo, -ljudo)
+.SH SYNOPSIS
+.nf
+.B #include <judo.h>
+.PP
+.B #define JUDO_MAXDEPTH
+.fi
+.SH DESCRIPTION
+The maximum number of nested compound structures that Judo can process.
+This value can be set at configuration time.
+Defining a maximum nesting depth ensures that malicious JSON cannot trigger a stack overflow.

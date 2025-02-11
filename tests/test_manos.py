@@ -268,6 +268,9 @@ def test_audition() -> None:
 def test_unicorn() -> None:
     assert_snapshot("unicorn")
 
+def test_judo() -> None:
+    assert_snapshot("judo")
+
 # Intentionally exclude all XML files.
 def test_no_xml(capsys: pytest.CaptureFixture[str]) -> None:
     os.chdir(os.path.join(WORKING_DIR, "empty"))

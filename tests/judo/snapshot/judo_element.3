@@ -1,0 +1,69 @@
+.TH "JUDO" "3"
+.SH NAME
+judo_element \- semantic element
+.SH LIBRARY
+Embeddable JSON parser (libjudo, -ljudo)
+.SH SYNOPSIS
+.nf
+.B #include <judo.h>
+.PP
+.B enum judo_element {
+.RS
+.B JUDO_UNDEFINED,
+.B JUDO_NULL,
+.B JUDO_TRUE,
+.B JUDO_FALSE,
+.B JUDO_NUMBER,
+.B JUDO_STRING,
+.B JUDO_ARRAY_PUSH,
+.B JUDO_ARRAY_POP,
+.B JUDO_OBJECT_PUSH,
+.B JUDO_OBJECT_POP,
+.B JUDO_OBJECT_NAME,
+.B JUDO_EOF,
+.RE
+.B };
+.fi
+.SH DESCRIPTION
+This enumeration represents a semanticly important element within the JSON stream.
+.SH CONSTANTS
+.TP
+.BR JUDO_UNDEFINED
+This element will be returned if an error occured during the scanning of the JSON stream.
+.TP
+.BR JUDO_NULL
+Represents the JSON \f[C]null\f[R] value.
+.TP
+.BR JUDO_TRUE
+Represents the JSON boolean \f[C]true\f[R] value.
+.TP
+.BR JUDO_FALSE
+Represents the JSON boolean \f[C]false\f[R] value.
+.TP
+.BR JUDO_NUMBER
+Represents a JSON numeric value.
+The floating point representation can be retrieved with #judo_numberify.
+.TP
+.BR JUDO_STRING
+Represents a JSON string value.
+The escaped string can be retrieved with #judo_stringify.
+.TP
+.BR JUDO_ARRAY_PUSH
+Indicates an array is about to be parsed.
+.TP
+.BR JUDO_ARRAY_POP
+Indicates an array has finished being parsed.
+.TP
+.BR JUDO_OBJECT_PUSH
+Indicates an object is about to be parsed.
+.TP
+.BR JUDO_OBJECT_POP
+Indicates an object has finished being parsed.
+.TP
+.BR JUDO_OBJECT_NAME
+Represents an object’s member name.
+In JavaScript terminology, this would be the objects “key.” In JSON5 this might be an ECMAScript 5.1 identifier.
+.TP
+.BR JUDO_EOF
+Represents the end of the JSON stream.
+Receiving this element indicates the JSON stream has been fully parsed successfully.

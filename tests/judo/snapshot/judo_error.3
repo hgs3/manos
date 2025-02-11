@@ -1,0 +1,24 @@
+.TH "JUDO" "3"
+.SH NAME
+judo_error
+.SH LIBRARY
+Embeddable JSON parser (libjudo, -ljudo)
+.SH SYNOPSIS
+.nf
+.B #include <judo.h>
+.PP
+.B struct judo_error {
+.RS
+.B int32_t where;
+.B int32_t length;
+.B char description[JUDO_ERRMAX];
+.RE
+.B };
+.fi
+.SH DESCRIPTION
+This structure will be populated with error information when #judo_parse fails.
+More specifically, it will be populated with a UTF-8 encoded error message written in US English.
+The \f[I]where\f[R] and \f[I]length\f[R] which together communicate the span of code units where the error was detected in the JSON source text.
+You can use the span of code units to derive line and column numbers for more detailed error reporting.
+.PP
+As an example, if an object was declared with a missing closing brace charater, then #judo_parse will return #JUDO_BAD_SYNTAX and \f[I]description\f[R] will be populated with the error message.

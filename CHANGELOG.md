@@ -4,11 +4,13 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 Dates are represented via [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
-## [0.4.0] - ???
+## [0.4.0] - February 11th, 2025
 
-To be determined...
+### Fixed
 
-## [0.3.0] - January 9th, 2024
+* Correcting a mishandling of compound members when the compound is declared inside a Doxygen group.
+
+## [0.3.0] - January 9th, 2025
 
 ### Changed
 
