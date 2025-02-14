@@ -11,7 +11,7 @@ Embeddable JSON parser (libjudo, -ljudo)
 Embeddable JSON Parser.
 .SS Scanner
 The Judo scanner processes JSON source text into semantic elements.
-\f[B]judo_element\f[R](3) are notable marker points within the JSON stream that may or may not correspond with a JSON token.
+Semantic elements are notable marker points within the JSON stream that may or may not correspond with a JSON token.
 You can find semantic elements with the #judo_scan function, which returns them one-at-a-time.
 This function is intended to be called repeatedly until all semantic elements have been processed or an error halts the scanner.
 .TS

@@ -295,27 +295,30 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
             refid_xml = elem.get("refid")
             if refid_xml is not None and refid_xml in state.compounds:
                 compound = state.compounds[refid_xml]
-                if isinstance(compound, Function) or isinstance(compound, CompositeType) or isinstance(compound, Enum) or isinstance(compound, Typedef) or isinstance(compound, Define):
-                    roff = Roff()
-                    roff.append_text(f"\\f[B]{compound.name}\\f[R](3)")
-                    if ctx.active_compound is not None:
-                        ctx.active_compound.add_referenced(compound)
-                    return roff
-                elif isinstance(compound, EnumElement):
-                    roff = Roff()
-                    roff.append_text(f"\\f[B]{compound.name}\\f[R]")
-                    if ctx.active_compound is not None:
-                        ctx.active_compound.add_referenced(compound.parent)
-                    return roff
-                elif isinstance(compound, Field):
-                    roff = Roff()
-                    roff.append_text(f"\\f[I]{compound.name}\\f[R]")
-                    if ctx.active_compound is not None:
-                        ctx.active_compound.add_referenced(compound.parent)
-                    return roff
-                elif isinstance(compound, Example):
+                # Only use a man page reference if the text content itself is the compound name.
+                # e.g. If using custom text to link to the compound, then keep the custom text.
+                if isinstance(compound, Example):
                     if ctx.active_compound is not None:
                         ctx.active_compound.examples.append(compound)
+                elif str(content) == compound.name:
+                    if isinstance(compound, Function) or isinstance(compound, CompositeType) or isinstance(compound, Enum) or isinstance(compound, Typedef) or isinstance(compound, Define):
+                        roff = Roff()
+                        roff.append_text(f"\\f[B]{compound.name}\\f[R](3)")
+                        if ctx.active_compound is not None:
+                            ctx.active_compound.add_referenced(compound)
+                        return roff
+                    elif isinstance(compound, EnumElement):
+                        roff = Roff()
+                        roff.append_text(f"\\f[B]{compound.name}\\f[R]")
+                        if ctx.active_compound is not None:
+                            ctx.active_compound.add_referenced(compound.parent)
+                        return roff
+                    elif isinstance(compound, Field):
+                        roff = Roff()
+                        roff.append_text(f"\\f[I]{compound.name}\\f[R]")
+                        if ctx.active_compound is not None:
+                            ctx.active_compound.add_referenced(compound.parent)
+                        return roff
         return content
 
     # Check for an external URL link, i.e. a link to a webpage.
