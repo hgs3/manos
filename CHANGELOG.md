@@ -6,6 +6,10 @@ Dates are represented via [ISO 8601](https://www.iso.org/iso-8601-date-and-time-
 
 ## [0.4.0] - ??
 
+### Changed
+
+* Doxygen references only link to man page compounds if custom link text is **not** used. If custom link text is used, the text is shown as-is.
+
 ## [0.3.1] - February 11th, 2025
 
 ### Fixed

@@ -300,25 +300,24 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                 if isinstance(compound, Example):
                     if ctx.active_compound is not None:
                         ctx.active_compound.examples.append(compound)
-                elif str(content) == compound.name:
-                    if isinstance(compound, Function) or isinstance(compound, CompositeType) or isinstance(compound, Enum) or isinstance(compound, Typedef) or isinstance(compound, Define):
-                        roff = Roff()
-                        roff.append_text(f"\\f[B]{compound.name}\\f[R](3)")
-                        if ctx.active_compound is not None:
-                            ctx.active_compound.add_referenced(compound)
-                        return roff
-                    elif isinstance(compound, EnumElement):
-                        roff = Roff()
-                        roff.append_text(f"\\f[B]{compound.name}\\f[R]")
-                        if ctx.active_compound is not None:
-                            ctx.active_compound.add_referenced(compound.parent)
-                        return roff
-                    elif isinstance(compound, Field):
-                        roff = Roff()
-                        roff.append_text(f"\\f[I]{compound.name}\\f[R]")
-                        if ctx.active_compound is not None:
-                            ctx.active_compound.add_referenced(compound.parent)
-                        return roff
+                elif isinstance(compound, Function) or isinstance(compound, CompositeType) or isinstance(compound, Enum) or isinstance(compound, Typedef) or isinstance(compound, Define):
+                    if str(content) == compound.name:
+                        content = Roff()
+                        content.append_text(f"\\f[B]{compound.name}\\f[R](3)")
+                    if ctx.active_compound is not None:
+                        ctx.active_compound.add_referenced(compound)
+                elif isinstance(compound, EnumElement):
+                    if str(content) == compound.name:
+                        content = Roff()
+                        content.append_text(f"\\f[B]{compound.name}\\f[R]")
+                    if ctx.active_compound is not None:
+                        ctx.active_compound.add_referenced(compound.parent)
+                elif isinstance(compound, Field):
+                    if str(content) == compound.name:
+                        content = Roff()
+                        content.append_text(f"\\f[I]{compound.name}\\f[R]")
+                    if ctx.active_compound is not None:
+                        ctx.active_compound.add_referenced(compound.parent)
         return content
 
     # Check for an external URL link, i.e. a link to a webpage.
