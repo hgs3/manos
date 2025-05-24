@@ -45,14 +45,25 @@ class Roff:
                 return False
         return True
 
+    # While groff can handle a vast range of Unicode characters, for maximum compatibility and ease of use,
+    # it's best practice to primarily use basic Latin (US-ASCII) characters for the core content of man pages.
+    def escape(self, other: str) -> str:
+        unicode_escapes = {
+            '\u201C': r'"',
+            '\u201D': r'"',
+            '\u2018': r"'",
+            '\u2019': r"'",
+        }
+        return ''.join(unicode_escapes.get(char, char) for char in other)
+
     def append_roff(self, other: 'Roff') -> None:
         self.entries += other.entries
 
     def append_text(self, other: str) -> None:
-        self.entries.append(Text(other))
+        self.entries.append(Text(self.escape(other)))
 
     def append_source(self, other: str) -> None:
-        self.entries.append(LiteralText(other, True))
+        self.entries.append(LiteralText(self.escape(other), True))
 
     def append_macro(self, name: str, argument: Optional[str] = None) -> None:
         self.entries.append(Macro(name, argument))

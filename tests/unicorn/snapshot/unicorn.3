@@ -77,7 +77,7 @@ Uppercase conversion
 Case conversion is context sensitive which means characters are mapped based on their surrounding characters.
 .PP
 Support for case conversion must be enabled in the JSON configuration file.
-Where string values “lower”, “title”, and “upper” correspond to the \f[B]UNI_LOWER\f[R], \f[B]UNI_TITLE\f[R], and \f[B]UNI_UPPER\f[R] constants, respectively.
+Where string values "lower", "title", and "upper" correspond to the \f[B]UNI_LOWER\f[R], \f[B]UNI_TITLE\f[R], and \f[B]UNI_UPPER\f[R] constants, respectively.
 .PP
 .in +4n
 .EX
@@ -96,7 +96,7 @@ Where string values “lower”, “title”, and “upper” correspond to the 
 Case folding transforms text into a form intended for case-insensitive string comparisons.
 Case folding is primarily based on the simple lowercase mappings, but there are instances where uppercase characters are used such as Cherokee characters.
 A case folded string must never be displayed to an end-user.
-It’s only intended for internal case-insensitive comparisons.
+It's only intended for internal case-insensitive comparisons.
 .PP
 There are two variations of case folding supported by Unicorn:
 .PP
@@ -111,7 +111,7 @@ Default case folding does not preserve normalization forms.
 This means a string in a particular Unicode normalization form is not guaranteed to be in that same normalization form after being casefolded.
 .PP
 Support for case folding must be enabled in the JSON configuration file.
-Where string values “default” and “canonical” correspond to the \f[B]UNI_DEFAULT\f[R] and \f[B]UNI_CANONICAL\f[R] constants, respectively.
+Where string values "default" and "canonical" correspond to the \f[B]UNI_DEFAULT\f[R] and \f[B]UNI_CANONICAL\f[R] constants, respectively.
 .PP
 .in +4n
 .EX
@@ -152,7 +152,7 @@ T}
 Collation is the process and function of determining the sorting order of strings.
 Collation varies according to language and culture: Germans, French and Swedes sort the same characters differently.
 Unicorn is not an internationalization library therefore it does not contain language specific rules for sorting.
-Instead, it uses the Default Collation Element table (DUCET), which is data specifying the “default” collation order for all Unicode characters.
+Instead, it uses the Default Collation Element table (DUCET), which is data specifying the "default" collation order for all Unicode characters.
 The goal of DUCET is to provide a reasonable default ordering for all scripts.
 .PP
 To address the complexities of language-sensitive sorting, a multilevel comparison algorithm is employed.
@@ -163,7 +163,7 @@ The number of levels that are considered in comparison is known as the strength 
 .PP
 Collation is one of the most performance-critical features in a system.
 Consider the number of comparison operations that are involved in sorting or searching large databases.
-When comparing strings multiple times it’s recommended to generate and cache a sort key.
+When comparing strings multiple times it's recommended to generate and cache a sort key.
 A sort key is an array of unsigned 16-bit integers that is generated from a single string in combination with other collation settings.
 Sort keys must be generated with the same settings for their order to make sense.
 Two sort keys can be compared to produce either a less than, greater than, or equal to result.

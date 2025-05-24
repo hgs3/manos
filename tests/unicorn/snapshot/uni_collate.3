@@ -12,7 +12,7 @@ Embeddable Unicode Algorithms (libunicorn, -lunicorn)
 .SH DESCRIPTION
 Compare strings \f[I]s1\f[R] and \f[I]s2\f[R] and write either -1, 0, or 1 to \f[I]result\f[R] depending on if \f[C]s1 < s2\f[R], \f[C]s1 = s2\f[R], or \f[C]s1 > s2\f[R].
 This function is intended for one-off string comparisons.
-If a string will be compared multiple times, then it’s recommended to build a sort key for it.
+If a string will be compared multiple times, then it's recommended to build a sort key for it.
 Sort keys are constructed with \f[B]uni_sortkeymk\f[R](3) and compared with \f[B]uni_sortkeycmp\f[R](3).
 .PP
 Support for collation must be enabled in the JSON configuration file.

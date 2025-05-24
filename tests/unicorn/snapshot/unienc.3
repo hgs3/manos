@@ -77,7 +77,7 @@ Text stored as Unicode scalar values uses \f[B]unichar\f[R](3) for storage.
 Remember that a Unicode scalar is not the same as a code point.
 The former excludes surrogate characters whereas the latter does not.
 .IP
-Although this “encoding” is part of the \f[B]unienc\f[R](3) enumeration it is not a standardized Unicode encoding.
+Although this "encoding" is part of the \f[B]unienc\f[R](3) enumeration it is not a standardized Unicode encoding.
 It is a pseudo-encoding associated with \f[B]unienc\f[R](3) for convenience.
 .TP
 .BR UNI_UTF8
@@ -94,21 +94,21 @@ The implementation uses an unsigned 32-bit integer (\f[C]uint32_t\f[R]) to repre
 .TP
 .BR UNI_BIG
 This flag indicates the text is encoded in big endian byte order.
-It’s incompatible with the \f[B]UNI_LITTLE\f[R] flag.
+It's incompatible with the \f[B]UNI_LITTLE\f[R] flag.
 .IP
 This flag is intended for use with \f[B]UNI_UTF16\f[R] and \f[B]UNI_UTF32\f[R].
 It has no effect when used with \f[B]UNI_UTF8\f[R] or \f[B]UNI_SCALAR\f[R].
 .TP
 .BR UNI_LITTLE
 This flag indicates the text is encoded in little endian byte order.
-It’s incompatible with the \f[B]UNI_BIG\f[R] flag.
+It's incompatible with the \f[B]UNI_BIG\f[R] flag.
 .IP
 This flag is intended for use with \f[B]UNI_UTF16\f[R] and \f[B]UNI_UTF32\f[R].
 It has no effect when used with \f[B]UNI_UTF8\f[R] or \f[B]UNI_SCALAR\f[R].
 .TP
 .BR UNI_NATIVE
 This flag indicates the text is encoded in native endian byte order.
-It’s incompatible with the \f[B]UNI_BIG\f[R] and \f[B]UNI_LITTLE\f[R] flag.
+It's incompatible with the \f[B]UNI_BIG\f[R] and \f[B]UNI_LITTLE\f[R] flag.
 .IP
 This flag is intended for use with \f[B]UNI_UTF16\f[R] and \f[B]UNI_UTF32\f[R].
 It has no effect when used with \f[B]UNI_UTF8\f[R] or \f[B]UNI_SCALAR\f[R].

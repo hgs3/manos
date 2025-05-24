@@ -184,6 +184,9 @@ def test_structs() -> None:
 def test_structs_with_field_docs() -> None:
     assert_snapshot("structs", "snapshot-with-field-docs", composite_fields=True)
 
+def test_unicode() -> None:
+    assert_snapshot("unicode")
+
 def test_unions() -> None:
     assert_snapshot("unions")
 
