@@ -6,6 +6,10 @@ Dates are represented via [ISO 8601](https://www.iso.org/iso-8601-date-and-time-
 
 ## [0.5.0] - ??
 
+### Changed
+
+* Substituting Unicode quotation mark characters with Basic Latin (US-ASCII) characters in man page output for maximum compatibility.
+
 ## [0.4.0] - February 13th, 2025
 
 ### Changed
