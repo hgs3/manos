@@ -302,8 +302,16 @@ def process_as_roff(ctx: Context, elem: Optional[lxml.etree._Element]) -> Roff:
                         ctx.active_compound.examples.append(compound)
                 elif isinstance(compound, Function) or isinstance(compound, CompositeType) or isinstance(compound, Enum) or isinstance(compound, Typedef) or isinstance(compound, Define):
                     if str(content) == compound.name:
-                        content = Roff()
-                        content.append_text(f"\\f[B]{compound.name}\\f[R](3)")
+                        ref = f"\\f[B]{compound.name}\\f[R]"
+                        if ctx.active_compound == compound:
+                            # Don't add a '(3)' man page reference if the compound references itself.
+                            # If this is a function, then add '()' to denote it as such.
+                            if isinstance(ctx.active_compound, Function):
+                                ref += "()"
+                        else:
+                            ref += "(3)"
+                        content = Roff()                        
+                        content.append_text(ref)
                     if ctx.active_compound is not None:
                         ctx.active_compound.add_referenced(compound)
                 elif isinstance(compound, EnumElement):
