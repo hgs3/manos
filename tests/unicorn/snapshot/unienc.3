@@ -22,7 +22,7 @@ Embeddable Unicode Algorithms (libunicorn, -lunicorn)
 .B };
 .fi
 .SH DESCRIPTION
-Unless documented otherwise, all functions that accept a \f[B]unienc\f[R](3) must observe the following rules:
+Unless documented otherwise, all functions that accept a \f[B]unienc\f[R] must observe the following rules:
 .PP
 There must be exactly one of the following encodings present.
 .PP
@@ -77,8 +77,8 @@ Text stored as Unicode scalar values uses \f[B]unichar\f[R](3) for storage.
 Remember that a Unicode scalar is not the same as a code point.
 The former excludes surrogate characters whereas the latter does not.
 .IP
-Although this "encoding" is part of the \f[B]unienc\f[R](3) enumeration it is not a standardized Unicode encoding.
-It is a pseudo-encoding associated with \f[B]unienc\f[R](3) for convenience.
+Although this "encoding" is part of the \f[B]unienc\f[R] enumeration it is not a standardized Unicode encoding.
+It is a pseudo-encoding associated with \f[B]unienc\f[R] for convenience.
 .TP
 .BR UNI_UTF8
 Text encoded as UTF-8.

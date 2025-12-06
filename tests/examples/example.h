@@ -17,7 +17,7 @@
 
 /*! \brief Frobnicate a foo.
  *
- *  This function frobnicates a foo and produces a bar.
+ *  The #Frobnicate function frobnicates a foo and produces a bar.
  *
  *  \see \ref foo.c
  */

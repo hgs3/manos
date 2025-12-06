@@ -6,6 +6,10 @@ Dates are represented via [ISO 8601](https://www.iso.org/iso-8601-date-and-time-
 
 ## [0.6.0] - ???
 
+### Changed
+
+* Removing the '(3)' suffix from self-references.
+
 ## [0.5.0] - September 7th, 2025
 
 ### Changed

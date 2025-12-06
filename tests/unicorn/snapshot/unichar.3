@@ -19,7 +19,7 @@ This helps simplify integration with existing applications which may already hav
 The type chosen can be signed or unsigned, but it must be large enough to accommodate the entire Unicode character repertoire.
 As of Unicode 16.0, that means an integer with at least 21 bits of storage.
 .PP
-The snippet below demonstrates how to redefine \f[B]unichar\f[R](3) as a signed 64-bit integer.
+The snippet below demonstrates how to redefine \f[B]unichar\f[R] as a signed 64-bit integer.
 Using a 64-bit integer is wasteful, as you only need 21-bits, and was chosen for example purposes only.
 .PP
 .in +4n
