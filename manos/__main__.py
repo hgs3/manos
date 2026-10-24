@@ -1162,7 +1162,7 @@ def main(doxyfile: str, arguments: Arguments) -> int:
 def parse_args(arguments: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog="manos", description="Man page generator for C projects.")
     parser.add_argument("doxyfile")
-    parser.add_argument("-v", "--version", action="version", version='%(prog)s 1.0')
+    parser.add_argument("-v", "--version", action="version", version='%(prog)s 0.6.0')
     parser.add_argument("-q", "--quite", action="store_true", dest="suppress_output", help="suppress output")
 
     group = parser.add_argument_group()
